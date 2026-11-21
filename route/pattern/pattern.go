@@ -31,8 +31,8 @@ func Parse(path string) []Part {
 }
 
 // Walk calls emit for each part of path in order. It allocates nothing itself:
-// it is the common syntax scanner, and echo's RouteInfo.Reverse uses it directly
-// to avoid allocating a parts slice for each URL it builds.
+// it is the common syntax scanner, so a caller that builds a URL from a pattern
+// can read the parts without a slice of them. Parse collects what Walk emits.
 func Walk(path string, emit func(Part)) {
 	for i := 0; i < len(path); {
 		if isEscapedColon(path, i) {
