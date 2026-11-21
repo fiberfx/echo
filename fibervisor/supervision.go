@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"syscall"
-	"time"
 
 	"github.com/fiberfx/mx-echo/v6/observe"
 )
@@ -22,7 +21,7 @@ type Supervision struct {
 	// derived; the field holds whatever a caller sets.
 	AttemptNode string
 
-	grace time.Duration // FV_GRACE_MS as Read found it, 0 when fv did not set it; Grace returns it
+	grace stopGrace // FV_GRACE_MS as Read found it; Grace returns it
 }
 
 // Read returns the attempt fv runs the service in, and true, when TRACEPARENT, FV_PATH and FV_TRACE describe one

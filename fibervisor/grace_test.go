@@ -22,11 +22,13 @@ func setGrace(t *testing.T, value string, set bool) {
 	}
 }
 
-// checkGrace returns an error unless d and ok are what Grace owes: want and true when want is positive, else 0 and
-// false, the grace unknown rather than guessed.
-func checkGrace(want, d time.Duration, ok bool) error {
-	known := want > 0
-	if ok != known || (known && d != want) || (!known && d != 0) {
+// checkGrace returns an error unless d and ok are what Grace owes: want and true when the grace is known, 0 among
+// them, else 0 and false, the grace unknown rather than guessed.
+func checkGrace(want time.Duration, known bool, d time.Duration, ok bool) error {
+	if !known {
+		want = 0
+	}
+	if ok != known || d != want {
 		return fmt.Errorf("Grace() = %v, %v, want %v, %v", d, ok, want, known)
 	}
 	return nil
@@ -37,23 +39,26 @@ func TestGrace(t *testing.T) {
 		name  string
 		value string
 		set   bool
-		want  time.Duration // 0 when the grace is unknown
+		want  time.Duration
+		known bool
 	}{
-		{"fv's default grace", "500", true, 500 * time.Millisecond},
-		{"the row's grace", "4000", true, 4 * time.Second},
-		{"one millisecond", "1", true, time.Millisecond},
+		{"fv's default grace", "500", true, 500 * time.Millisecond, true},
+		{"the row's grace", "4000", true, 4 * time.Second, true},
+		{"one millisecond", "1", true, time.Millisecond, true},
+		{"zero: fv kills right after the stop signal", "0", true, 0, true},
+		{"a leading zero, still decimal digits", "0400", true, 400 * time.Millisecond, true},
+		{"the largest a Duration holds", "9223372036854", true, 9223372036854 * time.Millisecond, true},
 
-		{"unset, as fv leaves it today", "", false, 0},
-		{"set and empty", "", true, 0},
-		{"zero", "0", true, 0},
-		{"negative", "-5", true, 0},
-		{"a sign", "+5", true, 0},
-		{"a duration's text", "4s", true, 0},
-		{"a leading zero", "0400", true, 0},
-		{"a space", " 400", true, 0},
-		{"a fraction", "1.5", true, 0},
-		{"more than a Duration holds", "9223372036855", true, 0},
-		{"more than an int64", "99999999999999999999", true, 0},
+		{"unset, as fv leaves it before train 2b", "", false, 0, false},
+		{"set and empty", "", true, 0, false},
+		{"negative", "-5", true, 0, false},
+		{"a sign", "+5", true, 0, false},
+		{"a duration's text", "4s", true, 0, false},
+		{"a leading space", " 4000", true, 0, false},
+		{"a trailing newline", "4000\n", true, 0, false},
+		{"a fraction", "1.5", true, 0, false},
+		{"more than a Duration holds", "9223372036855", true, 0, false},
+		{"more than an int64", "99999999999999999999", true, 0, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -64,21 +69,10 @@ func TestGrace(t *testing.T) {
 				t.Fatalf("Read() = %+v, false under fv's leaf environment", s)
 			}
 			d, ok := s.Grace()
-			if err := checkGrace(tt.want, d, ok); err != nil {
+			if err := checkGrace(tt.want, tt.known, d, ok); err != nil {
 				t.Errorf("%v, with FV_GRACE_MS=%q set=%v", err, tt.value, tt.set)
 			}
 		})
-	}
-}
-
-// TestGraceLargest holds the largest grace a Duration holds to true, so the bound is not off by one.
-func TestGraceLargest(t *testing.T) {
-	leaf(fvTrace, fvAttempt).set(t)
-	setGrace(t, "9223372036854", true)
-	s, _ := fibervisor.Read()
-	d, ok := s.Grace()
-	if err := checkGrace(9223372036854*time.Millisecond, d, ok); err != nil {
-		t.Error(err)
 	}
 }
 
@@ -90,11 +84,11 @@ func TestGraceNotSupervised(t *testing.T) {
 		t.Fatalf("Read() = %+v, true with no fv attempt", s)
 	}
 	d, ok := s.Grace()
-	if err := checkGrace(0, d, ok); err != nil {
+	if err := checkGrace(0, false, d, ok); err != nil {
 		t.Errorf("%v: a grace from a process fv does not hold", err)
 	}
 	d, ok = fvOwn.Grace()
-	if err := checkGrace(0, d, ok); err != nil {
+	if err := checkGrace(0, false, d, ok); err != nil {
 		t.Errorf("%v: a hand-built Supervision claims a grace", err)
 	}
 }
@@ -106,25 +100,29 @@ func TestGraceReadOnce(t *testing.T) {
 	s, _ := fibervisor.Read()
 	setGrace(t, "", false)
 	d, ok := s.Grace()
-	if err := checkGrace(4*time.Second, d, ok); err != nil {
+	if err := checkGrace(4*time.Second, true, d, ok); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestGraceViolation(t *testing.T) {
 	for _, bad := range []struct {
-		name string
-		want time.Duration
-		d    time.Duration
-		ok   bool
+		name  string
+		want  time.Duration
+		known bool
+		d     time.Duration
+		ok    bool
 	}{
-		{"fv's default guessed for an unset grace", 0, 500 * time.Millisecond, true},
-		{"an unknown grace claimed as zero", 0, 0, true},
-		{"a value returned with false", 0, 4 * time.Second, false},
-		{"seconds read for milliseconds", 4 * time.Second, 4000 * time.Second, true},
-		{"a known grace reported unknown", 4 * time.Second, 0, false},
+		{"-5 read as a known grace", 0, false, -5 * time.Millisecond, true},
+		{"-5 read as a known zero", 0, false, 0, true},
+		{"fv's default guessed for an unset grace", 0, false, 500 * time.Millisecond, true},
+		{"a value returned with false", 0, false, 4 * time.Second, false},
+		{"a known zero reported unknown", 0, true, 0, false},
+		{"a known zero read as fv's default", 0, true, 500 * time.Millisecond, true},
+		{"seconds read for milliseconds", 4 * time.Second, true, 4000 * time.Second, true},
+		{"a known grace reported unknown", 4 * time.Second, true, 0, false},
 	} {
-		if checkGrace(bad.want, bad.d, bad.ok) == nil {
+		if checkGrace(bad.want, bad.known, bad.d, bad.ok) == nil {
 			t.Errorf("%s passed the check", bad.name)
 		}
 	}
