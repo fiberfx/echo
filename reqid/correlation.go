@@ -4,7 +4,7 @@ package reqid
 
 // The names of the COR carriers, spelled as ECD's BCS and fv spell them.
 const (
-	CorrelationBaggageKey = "bcs.correlation.id" // the W3C Baggage member, canonical (ECD BCS)
+	CorrelationBaggageKey = "bcs.correlation.id" // the W3C Baggage member, canonical (ECD BCS); its value may be percent-encoded
 	CorrelationHeader     = "X-Correlation-ID"   // the HTTP header (ECD BCS)
 	CorrelationEnv        = "X_CORRELATION_ID"   // the process environment variable fv passes on
 	CorrelationMeta       = "x-correlation-id"   // the key in an MCP message's params._meta
@@ -39,15 +39,64 @@ func NewCorrelation(snowflake uint64) (Correlation, bool) {
 
 // CorrelationOf is the one rule that reads a request's COR from HTTP, given the request's Baggage header values in
 // order and its X-Correlation-ID header: the first Baggage member whose key is CorrelationBaggageKey gives the COR
-// when its value, without properties and trimmed of spaces and tabs, is a valid COR; else the header gives it when it
-// is one; else the zero Correlation. A caller passes r.Header.Values("Baggage") and r.Header.Get(CorrelationHeader).
-// It allocates nothing.
+// when its value, without properties, trimmed of spaces and tabs and percent-decoded as W3C Baggage allows, is a valid
+// COR; else the header gives it when it is one; else the zero Correlation. A caller passes r.Header.Values("Baggage")
+// and r.Header.Get(CorrelationHeader). It allocates nothing.
 func CorrelationOf(baggage []string, header string) Correlation {
-	if c, ok := ParseCorrelation(baggageValue(baggage, CorrelationBaggageKey)); ok {
-		return c
+	if value := baggageValue(baggage, CorrelationBaggageKey); indexByte(value, '%') < 0 {
+		if c, ok := ParseCorrelation(value); ok {
+			return c
+		}
+	} else {
+		var b [14]byte
+		if percentDecode(&b, value) {
+			if c, ok := ParseCorrelation(string(b[:])); ok {
+				return c
+			}
+		}
 	}
 	c, _ := ParseCorrelation(header)
 	return c
+}
+
+// percentDecode decodes s, a Baggage value, into b, each %XX as the byte of its two hex digits. It reports false for
+// a malformed escape and for a result that is not exactly len(b) bytes long.
+func percentDecode(b *[14]byte, s string) bool {
+	n := 0
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c == '%' {
+			if i+2 >= len(s) {
+				return false
+			}
+			hi, okHi := hexValue(s[i+1])
+			lo, okLo := hexValue(s[i+2])
+			if !okHi || !okLo {
+				return false
+			}
+			c = hi<<4 | lo
+			i += 2
+		}
+		if n == len(b) {
+			return false
+		}
+		b[n] = c
+		n++
+	}
+	return n == len(b)
+}
+
+// hexValue returns the value of the hex digit c, either case.
+func hexValue(c byte) (byte, bool) {
+	switch {
+	case '0' <= c && c <= '9':
+		return c - '0', true
+	case 'a' <= c && c <= 'f':
+		return c - 'a' + 10, true
+	case 'A' <= c && c <= 'F':
+		return c - 'A' + 10, true
+	}
+	return 0, false
 }
 
 // baggageValue returns the value of the first member of the Baggage header values whose key is key, without its

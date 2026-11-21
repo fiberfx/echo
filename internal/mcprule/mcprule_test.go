@@ -60,6 +60,10 @@ func TestDecide(t *testing.T) {
 			t.Errorf("%s: Decide = %d, %+v; want era %d and the zero verdict", c.name, era, v, c.era)
 		}
 	}
+	// One legacy version served is enough for a legacy initialize.
+	if era, v := mcprule.Decide("", false, "initialize", "", []string{"2025-06-18"}); era != mcprule.EraLegacyInit || !accepted(v) {
+		t.Errorf("legacy initialize with 2025-06-18 served: Decide = %d, %+v; want era %d", era, v, mcprule.EraLegacyInit)
+	}
 }
 
 func TestDecideViolation(t *testing.T) {
@@ -87,6 +91,8 @@ func TestDecideViolation(t *testing.T) {
 		{"legacy header narrowed out", "", false, "tools/list", "2025-06-18", []string{"2025-11-25"}, mcprule.UnsupportedProtocolVersion, "Unsupported protocol version '2025-06-18'", []string{"2025-11-25"}, "2025-06-18"},
 		{"unknown version in served is not served", "", false, "tools/list", "2099-01-01", []string{"2099-01-01"}, mcprule.UnsupportedProtocolVersion, "Unsupported protocol version '2099-01-01'", []string{"2099-01-01"}, "2099-01-01"},
 		{"no _meta and no header", "", false, "tools/list", "", served, mcprule.HeaderMismatch, "MCP-Protocol-Version header missing", nil, ""},
+		{"legacy initialize with only a modern version served", "", false, "initialize", "", []string{"2026-07-28"}, mcprule.UnsupportedProtocolVersion, "Unsupported protocol version ''", []string{"2026-07-28"}, ""},
+		{"legacy initialize with a narrow that serves none", "", false, "initialize", "2025-06-18", mcprule.Served([]string{"2025-6-18"}), mcprule.UnsupportedProtocolVersion, "Unsupported protocol version ''", []string{}, ""},
 	}
 	for _, c := range cases {
 		era, v := mcprule.Decide(c.meta, c.hasMeta, c.method, c.header, c.served)

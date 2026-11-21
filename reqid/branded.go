@@ -96,7 +96,8 @@ func NodeFrom(host string, pid int) uint16 {
 }
 
 // Minter mints snowflakes as EchoData.Snowflake does: lock-free, strictly increasing, never the same one twice. Two
-// Minters of one node can mint the same snowflake in one millisecond; a process keeps one Minter per node.
+// Minters of one node can mint the same snowflake in one millisecond; a process keeps one Minter per node. Use
+// NewMinter: the zero Minter is not usable.
 type Minter struct {
 	cell atomic.Int64 // ts<<12 | seq of the last snowflake minted; -1 before the first
 	node uint16

@@ -64,7 +64,8 @@ const (
 )
 
 // Served narrows the known versions, Modern then Legacy, to those listed in narrow, and never widens them: an entry
-// of narrow that is not a known version is dropped. An empty narrow serves every known version.
+// of narrow that is not a known version is dropped. An empty narrow serves every known version; a narrow with no
+// known entry serves none.
 func Served(narrow []string) []string {
 	known := slices.Concat(Modern, Legacy)
 	if len(narrow) == 0 {
@@ -84,7 +85,7 @@ func Served(narrow []string) []string {
 //
 //  1. A _meta version is modern: the header must equal it byte for byte, else HeaderMismatch; it must be served and
 //     modern, else UnsupportedProtocolVersion.
-//  2. The method initialize is legacy initialize.
+//  2. The method initialize is legacy initialize when a legacy version is served, else UnsupportedProtocolVersion.
 //  3. A header naming a served legacy version is legacy.
 //  4. A header naming a served modern version, without a _meta version, is -32602: the _meta field is required.
 //  5. Any other header is UnsupportedProtocolVersion; no header is HeaderMismatch.
@@ -104,6 +105,9 @@ func Decide(metaVersion string, hasMeta bool, method, headerVersion string, serv
 		return EraModern, Verdict{}
 	}
 	if method == "initialize" {
+		if !slices.ContainsFunc(served, func(v string) bool { return slices.Contains(Legacy, v) }) {
+			return EraRefused, unsupported("", served)
+		}
 		return EraLegacyInit, Verdict{}
 	}
 	if slices.Contains(served, headerVersion) && slices.Contains(Legacy, headerVersion) {

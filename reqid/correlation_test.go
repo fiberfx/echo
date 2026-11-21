@@ -203,3 +203,34 @@ func TestCorrelationAllocs(t *testing.T) {
 		t.Errorf("Correlation.AppendText wrote %q", buf)
 	}
 }
+
+// TestCorrelationOfPercentDecoded: W3C Baggage lets a producer percent-encode a byte that needs no escape, so an
+// encoded COR is the same COR; a malformed escape or a value that does not decode to 14 bytes is refused, and the
+// header then gives the COR.
+func TestCorrelationOfPercentDecoded(t *testing.T) {
+	const header = "COR0SCMa0vxXFZ"
+	for _, c := range []struct {
+		name, value, want string
+	}{
+		{"the first byte encoded", "%43OR0SF1bsgvgpc", "COR0SF1bsgvgpc"},
+		{"two bytes encoded, lowercase hex", "%43%4fR0SF1bsgvgpc", "COR0SF1bsgvgpc"},
+		{"plain", "COR0SF1bsgvgpc", "COR0SF1bsgvgpc"},
+		{"an escape cut short", "COR0SF1bsgvgp%4", header},
+		{"a bad hex digit", "%4GOR0SF1bsgvgpc", header},
+		{"15 bytes after decoding", "%43OR0SF1bsgvgpc0", header},
+		{"13 bytes after decoding", "%43OR0SF1bsgvgp", header},
+		{"an encoded byte that is not Base62", "COR0SF1bsgvg%2Fc", header},
+	} {
+		got := reqid.CorrelationOf([]string{"bcs.correlation.id=" + c.value}, header)
+		if got.String() != c.want {
+			t.Errorf("%s: CorrelationOf(%q) = %q, want %q", c.name, c.value, got, c.want)
+		}
+	}
+	baggage := []string{"bcs.correlation.id=%43OR0SF1bsgvgpc"}
+	if err := checkNoAllocs(func() { sinkCorrelation = reqid.CorrelationOf(baggage, "") }); err != nil {
+		t.Errorf("CorrelationOf of a percent-encoded value: %v", err)
+	}
+	if sinkCorrelation.String() != "COR0SF1bsgvgpc" {
+		t.Errorf("CorrelationOf of a percent-encoded value gave %q", sinkCorrelation)
+	}
+}

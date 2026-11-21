@@ -38,29 +38,22 @@ func Read() (Supervision, bool) {
 }
 
 // LinesOf returns the sink Lines returns, with two keys spliced into each line before its closing brace: "trace",
-// s.Trace, and "attempt_node", s.AttemptNode, so that `fv show` can be run from any line. A value that is not the
-// shape fv writes, 32 lowercase hex digits for the trace and 16 for the node, is written "none", never "", so no
-// value needs escaping. For the zero Supervision, what Read gives a service that fv does not hold, it writes
-// exactly what Lines writes. It builds the keys once: a line costs what a line of Lines costs.
+// s.Trace, and "attempt_node", s.AttemptNode, so that `fv show` can be run from any line. It writes them only when
+// s.Trace is 32 and s.AttemptNode 16 lowercase hex digits, the shapes fv writes, so neither value needs escaping.
+// For any other s, the zero Supervision among them, it writes exactly what Lines writes. The shapes are checked,
+// not the derivation: only Read gives a node fv derived. It builds the keys once: a line costs what a line of
+// Lines costs.
 func LinesOf(w io.Writer, s Supervision) observe.Sink {
-	if s == (Supervision{}) {
+	if !isHex(s.Trace, traceEnd-traceStart) || !isHex(s.AttemptNode, spanEnd-spanStart) {
 		return Lines(w)
 	}
 	tail := make([]byte, 0, 64)
 	tail = append(tail, `,"trace":"`...)
-	tail = append(tail, hexOrNone(s.Trace, traceEnd-traceStart)...)
+	tail = append(tail, s.Trace...)
 	tail = append(tail, `","attempt_node":"`...)
-	tail = append(tail, hexOrNone(s.AttemptNode, spanEnd-spanStart)...)
+	tail = append(tail, s.AttemptNode...)
 	tail = append(tail, `"}`...)
 	return &lines{w: w, tail: tail}
-}
-
-// hexOrNone returns s when it is n lowercase hex digits, else observe.None.
-func hexOrNone(s string, n int) string {
-	if !isHex(s, n) {
-		return observe.None
-	}
-	return s
 }
 
 // StopSignals returns the signals fv stops a leaf with: SIGTERM, which `fv stop` sends, and SIGINT (os.Interrupt),

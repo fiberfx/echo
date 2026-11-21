@@ -243,35 +243,42 @@ func TestLinesOfNotSupervised(t *testing.T) {
 	}
 }
 
+// TestLinesOfHandBuilt pins v6.6.0's rule: a Supervision built by hand gets the two keys only when both values have
+// fv's shapes, and otherwise LinesOf writes exactly what Lines writes, as v6.6.0 (c712809) did.
 func TestLinesOfHandBuilt(t *testing.T) {
 	for _, tt := range []struct {
-		name        string
-		s           fibervisor.Supervision
-		trace, node string // what the line owes for each key
+		name     string
+		s        fibervisor.Supervision
+		followed bool
 	}{
-		{"a path alone", fibervisor.Supervision{Path: fvAttempt}, observe.None, observe.None},
-		{"no node", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt}, fvOtherTrace, observe.None},
-		{"no trace", fibervisor.Supervision{Path: fvAttempt, AttemptNode: fvAttemptNode}, observe.None, fvAttemptNode},
-		// Values that would end the line or add a key if written as they are: they are written none.
-		{"a trace that would end the line", fibervisor.Supervision{Trace: `x"}` + "\n" + `{"id":"forged`, Path: fvAttempt, AttemptNode: fvAttemptNode}, observe.None, fvAttemptNode},
-		{"a node that would add a key", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt, AttemptNode: `x","attempt":"forged`}, fvOtherTrace, observe.None},
-		{"an uppercase node", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt, AttemptNode: strings.ToUpper(fvAttemptNode)}, fvOtherTrace, observe.None},
-		{"a node of 15 digits", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt, AttemptNode: fvAttemptNode[:15]}, fvOtherTrace, observe.None},
-		{"a trace of 33 digits", fibervisor.Supervision{Trace: fvOtherTrace + "0", Path: fvAttempt, AttemptNode: fvAttemptNode}, observe.None, fvAttemptNode},
+		{"a local path alone", fibervisor.Supervision{Path: "local"}, false},
+		{"a path alone", fibervisor.Supervision{Path: fvAttempt}, false},
+		{"no node", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt}, false},
+		{"no trace", fibervisor.Supervision{Path: fvAttempt, AttemptNode: fvAttemptNode}, false},
+		{"a trace that would end the line", fibervisor.Supervision{Trace: `x"}` + "\n" + `{"id":"forged`, Path: fvAttempt, AttemptNode: fvAttemptNode}, false},
+		{"a node that would add a key", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt, AttemptNode: `x","attempt":"forged`}, false},
+		{"an uppercase node", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt, AttemptNode: strings.ToUpper(fvAttemptNode)}, false},
+		{"a node of 15 digits", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt, AttemptNode: fvAttemptNode[:15]}, false},
+		{"a trace of 33 digits", fibervisor.Supervision{Trace: fvOtherTrace + "0", Path: fvAttempt, AttemptNode: fvAttemptNode}, false},
 		// The shapes are checked, not the derivation: only Read gives a node fv derived.
-		{"a request's node set by hand", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt, AttemptNode: derive(fvOtherTrace, fvAttemptRequest)}, fvOtherTrace, derive(fvOtherTrace, fvAttemptRequest)},
+		{"a request's node set by hand", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt, AttemptNode: derive(fvOtherTrace, fvAttemptRequest)}, true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			owed := fibervisor.Supervision{Trace: tt.trace, AttemptNode: tt.node}
 			of, plain := sinkPair(tt.s, observations)
 			if len(of) != len(observations) {
 				t.Fatalf("%d writes for %d observations", len(of), len(observations))
 			}
 			for i := range observations {
-				if err := checkFollowed(of[i], plain[i], owed); err != nil {
+				if !tt.followed {
+					if !bytes.Equal(of[i], plain[i]) {
+						t.Errorf("write %d = %q, and Lines writes %q", i+1, of[i], plain[i])
+					}
+					continue
+				}
+				if err := checkFollowed(of[i], plain[i], tt.s); err != nil {
 					t.Errorf("write %d: %v", i+1, err)
 				}
-				if want := followed(plain[i], owed); string(of[i]) != want {
+				if want := followed(plain[i], tt.s); string(of[i]) != want {
 					t.Errorf("write %d = %q, want %q", i+1, of[i], want)
 				}
 			}

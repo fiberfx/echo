@@ -36,7 +36,8 @@ const (
 	Request Kind = iota + 1
 	// Notification is a message with a method and no id: it expects none.
 	Notification
-	// Response is a message with a result or an error member. A server is sent none; the caller refuses it.
+	// Response is a message with a result or an error member. A stateless server that sends no requests expects
+	// none; the caller answers it 202 or refuses it.
 	Response
 )
 
@@ -54,7 +55,8 @@ func (k Kind) String() string {
 }
 
 // ID is a request id as the client wrote it: the raw JSON token of a string or of an integer, kept byte for byte, so
-// that 1 and "1" stay distinct and a response echoes the id exactly. The zero ID is an absent id. IDs are comparable.
+// that 1 and "1" stay distinct and a response echoes the id exactly. The zero ID is an absent id. IDs are comparable,
+// and == compares tokens, not values: 1, 1.0 and 1e0, or a string and its spelling with an escape, are distinct IDs.
 type ID struct{ raw string }
 
 // IsZero reports whether the id is absent.
