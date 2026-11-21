@@ -35,6 +35,7 @@ func graceOf(text string) stopGrace {
 		}
 	}
 	ms, err := strconv.ParseInt(text, 10, 64)
+	// A value a Duration cannot hold is not guessed; fv's MAX_GRACE (24h) is far below it.
 	if err != nil || ms > int64(time.Duration(1<<63-1)/time.Millisecond) {
 		return stopGrace{}
 	}
