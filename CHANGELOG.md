@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added `bind` for standalone typed value conversion and `server` for the lifecycle of an `http.Handler`. Both packages use the Go standard library.
+- The root conversion functions and `echo.StartConfig` remain available. The root `TimeOpts` and `TimeLayout` aliases work with either parser. Programs inspecting their defining package through reflection now see `github.com/fiberfx/mx-echo/v6/bind`.
+
 ## MX Echo v6.1.0
 
 - The module moves to `github.com/fiberfx/mx-echo/v6`. Update imports of the framework, middleware and test helpers together. The Go package name remains `echo`.

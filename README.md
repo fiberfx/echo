@@ -4,11 +4,13 @@ MX Echo is a Go HTTP framework derived from LabStack Echo v5.4.6 with the v5.4.7
 
 ## Open the workspace
 
-Open the directory containing [go.mod](go.mod) in GoLand or another Go editor. Run Go commands from that directory. The same module defines all three public packages.
+Open the directory containing [go.mod](go.mod) in GoLand or another Go editor. Run Go commands from that directory. This checkout includes two standalone packages added after v6.1.0. They share the framework’s module and version.
 
 | Import | Responsibility |
 | --- | --- |
 | `github.com/fiberfx/mx-echo/v6` | Route registration, request context, binding, responses and server lifecycle |
+| `github.com/fiberfx/mx-echo/v6/bind` | Convert strings and slices with pure functions, including defaults and typed time options |
+| `github.com/fiberfx/mx-echo/v6/server` | Serve any `http.Handler` with a caller-owned cancellation context, listener and shutdown policy |
 | `github.com/fiberfx/mx-echo/v6/middleware` | HTTP middleware, including request logging, recovery and compression |
 | `github.com/fiberfx/mx-echo/v6/echotest` | Request contexts, response recorders and fixtures for handler tests |
 
@@ -63,6 +65,38 @@ func main() {
 ```
 
 Run the program with `go run .`. A request to `http://localhost:8080/hello/Ada` returns `Hello, Ada!`. Pre-routing middleware registered with `e.Pre` runs before the router. Once a route matches, Echo calls its middleware and handler. Returned errors go to `HTTPErrorHandler`.
+
+## Compose a handler without the framework root
+
+This example uses the standalone packages from the checkout. The caller supplies a context for shutdown. The request handler uses the same integer conversion as an Echo handler.
+
+```go
+package service
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+
+	"github.com/fiberfx/mx-echo/v6/bind"
+	"github.com/fiberfx/mx-echo/v6/server"
+)
+
+func Serve(ctx context.Context, address string) error {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /count", func(w http.ResponseWriter, r *http.Request) {
+		count, err := bind.ParseValueOr[int](r.URL.Query().Get("n"), 1)
+		if err != nil {
+			http.Error(w, "n must be an integer", http.StatusBadRequest)
+			return
+		}
+		fmt.Fprintln(w, count)
+	})
+	return (server.StartConfig{Address: address}).Start(ctx, mux)
+}
+```
+
+Fibervisor’s responses service composes an Echo router with the same lifecycle through `echo.StartConfig`. The supervisor starts one executable, probes its HTTP readiness, and cancels it by process identity. A listener error should reach the command’s exit status. [HTTP handler and shutdown contracts](https://pkg.go.dev/net/http#Server.Shutdown)
 
 ## Origins and contributions
 

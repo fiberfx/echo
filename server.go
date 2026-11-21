@@ -4,22 +4,14 @@
 package echo
 
 import (
-	"cmp"
-	stdContext "context"
+	"context"
 	"crypto/tls"
-	"errors"
-	"fmt"
 	"io/fs"
-	"log/slog"
 	"net"
 	"net/http"
-	"os"
-	"sync"
 	"time"
-)
 
-const (
-	banner = "MX Echo (v%s). High performance, minimalist Go web framework https://github.com/fiberfx/mx-echo"
+	"github.com/fiberfx/mx-echo/v6/server"
 )
 
 // StartConfig is for creating configured http.Server instance to start serve http(s) requests with given Echo instance
@@ -60,141 +52,33 @@ type StartConfig struct {
 	BeforeServeFunc func(s *http.Server) error
 }
 
-// Start starts given Handler with HTTP(s) server.
-func (sc StartConfig) Start(ctx stdContext.Context, h http.Handler) error {
-	return sc.start(ctx, h)
+// Start starts the given handler with an HTTP or HTTPS server.
+func (sc StartConfig) Start(ctx context.Context, h http.Handler) error {
+	return sc.serverConfig(h).Start(ctx, h)
 }
 
-// StartTLS starts given Handler with HTTPS server.
-// If `certFile` or `keyFile` is `string` the values are treated as file paths.
-// If `certFile` or `keyFile` is `[]byte` the values are treated as the certificate or key as-is.
-func (sc StartConfig) StartTLS(ctx stdContext.Context, h http.Handler, certFile, keyFile any) error {
-	certFs := sc.CertFilesystem
-	if certFs == nil {
-		certFs = os.DirFS(".")
-	}
-	cert, err := filepathOrContent(certFile, certFs)
-	if err != nil {
-		return err
-	}
-	key, err := filepathOrContent(keyFile, certFs)
-	if err != nil {
-		return err
-	}
-	cer, err := tls.X509KeyPair(cert, key)
-	if err != nil {
-		return err
-	}
-	if sc.TLSConfig == nil {
-		sc.TLSConfig = &tls.Config{
-			MinVersion: tls.VersionTLS12,
-			NextProtos: []string{"h2"},
-			//NextProtos: []string{"http/1.1"}, // Disallow "h2", allow http
-		}
-	}
-	sc.TLSConfig.Certificates = []tls.Certificate{cer}
-	return sc.start(ctx, h)
+// StartTLS serves the handler with a certificate and key supplied as file paths or PEM bytes.
+func (sc StartConfig) StartTLS(ctx context.Context, h http.Handler, certFile, keyFile any) error {
+	return sc.serverConfig(h).StartTLS(ctx, h, certFile, keyFile)
 }
 
-// start starts handler with HTTP(s) server.
-func (sc StartConfig) start(ctx stdContext.Context, h http.Handler) error {
-	var logger *slog.Logger
-	if e, ok := h.(*Echo); ok {
-		logger = e.Logger
-	} else {
-		logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
+func (sc StartConfig) serverConfig(h http.Handler) server.StartConfig {
+	config := server.StartConfig{
+		Address:          sc.Address,
+		HideBanner:       sc.HideBanner,
+		HidePort:         sc.HidePort,
+		CertFilesystem:   sc.CertFilesystem,
+		TLSConfig:        sc.TLSConfig,
+		Listener:         sc.Listener,
+		ListenerNetwork:  sc.ListenerNetwork,
+		ListenerAddrFunc: sc.ListenerAddrFunc,
+		GracefulTimeout:  sc.GracefulTimeout,
+		OnShutdownError:  sc.OnShutdownError,
+		BeforeServeFunc:  sc.BeforeServeFunc,
+		BannerVersion:    Version,
 	}
-
-	server := http.Server{
-		Handler:  h,
-		ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelError),
-		// defaults for GoSec rule G112 // https://github.com/securego/gosec
-		// G112 (CWE-400): Potential Slowloris Attack because ReadHeaderTimeout is not configured in the http.Server
-		ReadTimeout: 30 * time.Second,
-		// WriteTimeout is a max time allowed to write the response
-		// IMPORTANT: set this to 0 when using Server-Sent-Events (SSE) or some larger duration when serving static files
-		// WriteTimeout: 30 * time.Second,
+	if e, ok := h.(*Echo); ok && e != nil {
+		config.Logger = e.Logger
 	}
-
-	listener := sc.Listener
-	if listener == nil {
-		listenerNetwork := cmp.Or(sc.ListenerNetwork, "tcp")
-
-		ln, err := (&net.ListenConfig{}).Listen(ctx, listenerNetwork, sc.Address)
-		if err != nil {
-			return err
-		}
-		listener = ln
-
-		if sc.TLSConfig != nil {
-			listener = tls.NewListener(listener, sc.TLSConfig)
-		}
-	}
-
-	if sc.ListenerAddrFunc != nil {
-		sc.ListenerAddrFunc(listener.Addr())
-	}
-
-	if sc.BeforeServeFunc != nil {
-		if err := sc.BeforeServeFunc(&server); err != nil {
-			_ = listener.Close()
-			return err
-		}
-	}
-	if !sc.HideBanner {
-		bannerText := fmt.Sprintf(banner, Version)
-		logger.Info(bannerText, "version", Version)
-	}
-	if !sc.HidePort {
-		logger.Info("http(s) server started", "address", listener.Addr().String())
-	}
-
-	wg := sync.WaitGroup{}
-	defer wg.Wait() // wait for graceful shutdown goroutine to finish
-
-	gCtx, cancel := stdContext.WithCancel(ctx) // end graceful goroutine when Serve returns early
-	defer cancel()
-
-	if sc.GracefulTimeout >= 0 {
-		wg.Go(func() {
-			gracefulShutdown(gCtx, &sc, &server, logger)
-		})
-	}
-
-	if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
-	}
-	return nil
-}
-
-func filepathOrContent(fileOrContent any, certFilesystem fs.FS) (content []byte, err error) {
-	switch v := fileOrContent.(type) {
-	case string:
-		return fs.ReadFile(certFilesystem, v)
-	case []byte:
-		return v, nil
-	default:
-		return nil, ErrInvalidCertOrKeyType
-	}
-}
-
-func gracefulShutdown(shutdownCtx stdContext.Context, sc *StartConfig, server *http.Server, logger *slog.Logger) {
-	<-shutdownCtx.Done() // wait until shutdown context is closed.
-	// note: is server if closed by other means this method is still run but is good as no-op
-
-	timeout := sc.GracefulTimeout
-	if timeout == 0 {
-		timeout = 10 * time.Second
-	}
-	waitShutdownCtx, cancel := stdContext.WithTimeout(stdContext.Background(), timeout)
-	defer cancel()
-
-	if err := server.Shutdown(waitShutdownCtx); err != nil {
-		// we end up here when listeners are not shut down within given timeout
-		if sc.OnShutdownError != nil {
-			sc.OnShutdownError(err)
-			return
-		}
-		logger.Error("failed to shut down server within given timeout", "error", err)
-	}
+	return config
 }

@@ -4,7 +4,7 @@ Open the module root in GoLand or use the Go tools from that directory. The modu
 
 ## Development commands
 
-- `go list ./...` lists the framework, middleware and `echotest` packages.
+- `go list ./...` lists the framework and its subpackages.
 - `go test ./...` runs the tests. Use `go test -race ./...` when changing request handling or shared state.
 - `go vet ./...` checks the module. `make check` also runs the configured linter and race suite.
 - `go test -run='^$' -bench=. -benchmem ./...` runs the benchmarks.
@@ -16,6 +16,8 @@ Open the module root in GoLand or use the Go tools from that directory. The modu
 | --- | --- |
 | Route registration, middleware composition, request dispatch | `echo.go`, `group.go`, `router.go` |
 | Request and response state | `context.go`, `response.go` |
+| Standalone string conversion | `bind/` |
+| HTTP listener, TLS and shutdown | `server/`, with the root adapter in `server.go` |
 | Body and parameter binding | `bind.go`, `binder.go`, `binder_generic.go` |
 | Middleware implementations | `middleware/` |
 | Public testing helpers | `echotest/` |

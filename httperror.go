@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+
+	"github.com/fiberfx/mx-echo/v6/server"
 )
 
 // The following errors can produce HTTP status code by implementing HTTPStatusCoder interface
@@ -32,7 +34,7 @@ var (
 	ErrInvalidRedirectCode    = errors.New("invalid redirect status code")
 
 	ErrCookieNotFound         = errors.New("cookie not found")
-	ErrInvalidCertOrKeyType   = errors.New("invalid cert or key type, must be string or []byte")
+	ErrInvalidCertOrKeyType   = server.ErrInvalidCertOrKeyType
 	ErrInvalidListenerNetwork = errors.New("invalid listener network")
 )
 

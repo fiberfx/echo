@@ -1,5 +1,9 @@
 # MX Echo roadmap
 
+## In the checkout
+
+The first reusable subsystems are [typed binding](bind/) and [HTTP server lifecycle](server/). Each can be imported without the root Echo package. Existing applications can continue to use the root API. The Fibervisor responses service is the compatibility consumer for listener startup and graceful shutdown.
+
 ## v6.1.0
 
 MX Echo uses `github.com/fiberfx/mx-echo/v6`. Applications migrating from the original v6.0.0 release must update imports in dependent packages together.

@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fiberfx/mx-echo/v6/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/http2"
@@ -237,6 +238,13 @@ func TestStartConfig_Start_createListenerError(t *testing.T) {
 	}
 	err := s.Start(stdContext.Background(), e)
 	assert.EqualError(t, err, "listen unknown: unknown network unknown")
+}
+
+func TestStartConfig_SharesCertificateErrorWithStandaloneServer(t *testing.T) {
+	config := StartConfig{}
+	err := config.StartTLS(t.Context(), New(), 42, nil)
+	require.Same(t, ErrInvalidCertOrKeyType, err)
+	require.Same(t, server.ErrInvalidCertOrKeyType, err)
 }
 
 func TestStartConfig_StartTLS(t *testing.T) {
