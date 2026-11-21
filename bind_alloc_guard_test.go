@@ -10,10 +10,10 @@ import (
 )
 
 // Allocations per bind, measured on the stand at 2db3c81 (v6.5.0), before the engine moved to
-// internal/bindengine. -1 is no measurement: the run prints the counts and is red.
+// internal/bindengine.
 const (
-	bindStructAllocs = -1
-	bindMapAllocs    = -1
+	bindStructAllocs = 2 // stand run l-bind-1 (20261121T102323Z), 9a681f9: "2 allocations per bind"
+	bindMapAllocs    = 6 // stand run l-bind-1 (20261121T102323Z), 9a681f9: "6 allocations per bind"
 )
 
 // checkBindAllocs is the assertion: an error unless a bind allocated exactly want.
