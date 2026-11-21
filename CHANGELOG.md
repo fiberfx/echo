@@ -1,5 +1,13 @@
 # Changelog
 
+## MX Echo v6.5.0
+
+- Added `fibervisor`, the opt-in join with the fv supervisor. `fibervisor.Attempt` returns the attempt path fv gave the process when `TRACEPARENT`, `FV_PATH` and `FV_TRACE` describe one fv attempt, and `none` otherwise; a service calls it once at start and hands the value to its observer. `fibervisor.Build` returns the main module's identity from the binary's build information. `fibervisor.Lines` is a sink that writes each observation as one JSON line. The package writes no fv record and reaches fv over nothing, and the root package does not import it.
+- Added `observe/stdhttp`. `stdhttp.Wrap` names and observes the requests of any `http.Handler`: the pattern is the standard mux's, and the name is in the request's context (`reqid.FromContext`). `reqid` gains `NewContext` and `FromContext`.
+- Added `examples/reference`, a service on `http.ServeMux` with no Echo type that composes `server`, `observe/stdhttp`, `fibervisor` and `outcome`: one JSON line per request on standard error, exit 0 after a drained stop, 2 after a forced one and 1 when it could not serve.
+- Added `mx.yml`, the MX project manifest: the contributor checks (`make check` as the workflow `check`) and the reference service (build, serve, probe) as MX jobs that today's `mx run --plan` reads. The Go jobs run under mx once job environment inheritance (mx-exec A4.3) lands.
+- The root package and the middleware are unchanged in this release. The join is checked against the environment fv's code writes, not under a running fv.
+
 ## MX Echo v6.4.0
 
 - A server can say how it stopped. `server.StartConfig` and `echo.StartConfig` gain `OnStop`, called once after the listener closed and the stop ended, before `Start` returns. Its `server.StopReport` says whether the stop was requested, whether the grace expired first (`Forced`) and how many owned functions were still running (`Abandoned`). Setting `OnStop` also makes `Start` close the remaining connections when the grace expires. With `OnStop` unset, `Start` behaves as in v6.1.0 and still returns nil after a stop.

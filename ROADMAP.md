@@ -1,5 +1,9 @@
 # MX Echo roadmap
 
+## v6.5.0
+
+The join with a supervisor is a package a service opts into. [fibervisor](fibervisor/) reads the attempt fv gave the process and writes observations as JSON lines; [observe/stdhttp](observe/stdhttp/) gives any `http.Handler` the same named, observed request; the [reference service](examples/reference/) shows both on the standard mux with an exit status a supervisor can read. The root package imports neither. Not yet shown: the reference service under a running fv.
+
 ## v6.4.0
 
 A stop is reported, not assumed. A server started with `OnStop` reports whether its stop drained or was forced, after the listener closed, and a [server-scoped owner](server/) holds work that outlives a request until the stop. `Echo.Freeze` makes the route table and the middleware chains fixed once registration is done. Each is opt-in. The middleware's decisions are pure functions in one internal package.
