@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: © 2015 LabStack LLC and Echo contributors
 
-// Package reqid holds a request's name as a value, and an incoming traceparent as a link beside it.
+// Package reqid holds a request's name as a value, an incoming traceparent as a link beside it, and the COR id of the
+// flow the request belongs to, in the branded-id contract of echo_data native.
 //
-// The package is pure: it imports only context, for NewContext and FromContext, and reads neither a clock nor a random source.
-// Whoever names a request gives New the time and the random number.
+// The package is pure: it imports only context, for NewContext and FromContext, and sync/atomic, for Minter, and reads
+// neither a clock nor a random source. Whoever names a request gives New the time and the random number, and whoever
+// mints a COR gives NewMinter the clock.
 package reqid
 
 const hexDigits = "0123456789abcdef"

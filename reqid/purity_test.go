@@ -13,8 +13,9 @@ import (
 	"testing"
 )
 
-// allowed holds context alone, for NewContext and FromContext: reqid writes its hex by hand.
-var allowed = map[string]bool{"context": true}
+// allowed holds context, for NewContext and FromContext, and sync/atomic, for Minter: reqid writes its hex and Base62
+// by hand, and reads no clock.
+var allowed = map[string]bool{"context": true, "sync/atomic": true}
 
 func checkImports(filename string, src any) error {
 	f, err := parser.ParseFile(token.NewFileSet(), filename, src, parser.ImportsOnly)
@@ -56,5 +57,8 @@ func TestImportsStayPure(t *testing.T) {
 func TestImportsStayPureViolation(t *testing.T) {
 	if checkImports("planted.go", "package planted\n\nimport \"os\"\n") == nil {
 		t.Fatal("an import of os passed the check")
+	}
+	if checkImports("planted.go", "package planted\n\nimport \"time\"\n") == nil {
+		t.Fatal("an import of time passed the check")
 	}
 }
