@@ -1,8 +1,10 @@
 # MX Echo roadmap
 
-## In the checkout
+## v6.2.0
 
 The first reusable subsystems are [typed binding](bind/) and [HTTP server lifecycle](server/). Each can be imported without the root Echo package. Existing applications can continue to use the root API. The Fibervisor responses service is the compatibility consumer for listener startup and graceful shutdown.
+
+Two pure packages join them: [the route pattern grammar](route/pattern/) and [request outcomes](outcome/). The root's route registration, `RouteInfo.Reverse` and built-in error handlers are adapters over them, and answer as they did in v6.1.0.
 
 ## v6.1.0
 

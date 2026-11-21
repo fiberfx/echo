@@ -1,9 +1,11 @@
 # Changelog
 
-## Unreleased
+## MX Echo v6.2.0
 
 - Added `bind` for standalone typed value conversion and `server` for the lifecycle of an `http.Handler`. Both packages use the Go standard library.
 - The root conversion functions and `echo.StartConfig` remain available. The root `TimeOpts` and `TimeLayout` aliases work with either parser. Programs inspecting their defining package through reflection now see `github.com/fiberfx/mx-echo/v6/bind`.
+- Added `route/pattern`, which reads a route pattern into its static, parameter and wildcard parts without a router, and `outcome`, which classifies how a request ended and gives the status of an error response as a value. Both are pure: they import only the Go standard library and read no clock, environment or network.
+- The two built-in error handlers and `RouteInfo.Reverse` use these packages. Their statuses, headers, bodies and reversed URLs are the same as in v6.1.0.
 
 ## MX Echo v6.1.0
 
