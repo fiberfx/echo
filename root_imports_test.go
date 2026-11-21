@@ -23,13 +23,13 @@ const rootImportsModule = "github.com/fiberfx/mx-echo/v6/"
 
 // rootImportsAllowed holds the module's packages the root may import.
 var rootImportsAllowed = map[string]bool{
-	rootImportsModule + "bind":          true,
-	rootImportsModule + "server":        true,
-	rootImportsModule + "route/pattern": true,
-	rootImportsModule + "outcome":       true,
-	rootImportsModule + "reqid":         true,
-	rootImportsModule + "observe":       true,
-	rootImportsModule + "httprule":      true,
+	rootImportsModule + "bind":              true,
+	rootImportsModule + "server":            true,
+	rootImportsModule + "route/pattern":     true,
+	rootImportsModule + "outcome":           true,
+	rootImportsModule + "reqid":             true,
+	rootImportsModule + "observe":           true,
+	rootImportsModule + "internal/httprule": true,
 }
 
 // rootImportsRefused names the packages of the join, so that an import of one says why it is refused.
@@ -100,6 +100,7 @@ func TestRootImportsViolation(t *testing.T) {
 	}{
 		{"an import of fibervisor", "package echo\n\nimport \"github.com/fiberfx/mx-echo/v6/fibervisor\"\n"},
 		{"an import of observe/stdhttp", "package echo\n\nimport \"github.com/fiberfx/mx-echo/v6/observe/stdhttp\"\n"},
+		{"an import of the bare httprule, which is internal", "package echo\n\nimport \"github.com/fiberfx/mx-echo/v6/httprule\"\n"},
 		{"an import outside the module", "package echo\n\nimport \"golang.org/x/net/http2\"\n"},
 		{"a read of FV_PATH", "package echo\n\nimport \"os\"\n\nvar attempt = os.Getenv(\"FV_PATH\")\n"},
 		{"a read of TRACEPARENT", "package echo\n\nimport \"os\"\n\nvar link = os.Getenv(\"TRACEPARENT\")\n"},
