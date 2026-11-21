@@ -54,13 +54,18 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// fvEnv is the three variables fv's door gives the leaf of the attempt fvPath of fvTrace: the span is the node
-// id fv derives from the trace and the path (fiberfx/fv/src/id.rs in jonnify; package fibervisor's tests pin it
-// to fv's own vectors).
-func fvEnv() []string {
+// fvNode is the node id fv derives from fvTrace and fvPath (fiberfx/fv/src/id.rs in jonnify; package
+// fibervisor's tests pin it to fv's own vectors).
+func fvNode() string {
 	sum := sha256.Sum256([]byte("fv.node/1\x00" + fvTrace + "\x00" + fvPath))
+	return hex.EncodeToString(sum[:8])
+}
+
+// fvEnv is the three variables fv's door gives the leaf of the attempt fvPath of fvTrace: the span is the
+// attempt's node id.
+func fvEnv() []string {
 	return []string{
-		"TRACEPARENT=00-" + fvTrace + "-" + hex.EncodeToString(sum[:8]) + "-01",
+		"TRACEPARENT=00-" + fvTrace + "-" + fvNode() + "-01",
 		"FV_PATH=" + fvPath,
 		"FV_TRACE=" + fvTrace,
 	}
@@ -181,20 +186,22 @@ func (c *child) status(t *testing.T) int {
 	return c.cmd.ProcessState.ExitCode()
 }
 
-// line is one observation as the service writes it.
+// line is one observation as the service writes it. Trace and AttemptNode are written under fv only.
 type line struct {
-	ID        string `json:"id"`
-	Link      string `json:"link"`
-	Attempt   string `json:"attempt"`
-	Build     string `json:"build"`
-	Method    string `json:"method"`
-	Admission string `json:"admission"`
-	Pattern   string `json:"pattern"`
-	Handler   string `json:"handler"`
-	Kind      string `json:"kind"`
-	Status    int    `json:"status"`
-	Committed bool   `json:"committed"`
-	Panicked  bool   `json:"panicked"`
+	ID          string `json:"id"`
+	Link        string `json:"link"`
+	Attempt     string `json:"attempt"`
+	Build       string `json:"build"`
+	Method      string `json:"method"`
+	Admission   string `json:"admission"`
+	Pattern     string `json:"pattern"`
+	Handler     string `json:"handler"`
+	Kind        string `json:"kind"`
+	Status      int    `json:"status"`
+	Committed   bool   `json:"committed"`
+	Panicked    bool   `json:"panicked"`
+	Trace       string `json:"trace"`
+	AttemptNode string `json:"attempt_node"`
 }
 
 // parse reads what the service wrote to standard error: every line is one observation and nothing else.
@@ -248,6 +255,18 @@ func checkLines(lines []line, attempt string, wants []owed) error {
 		if l.Handler != observe.None || l.Link != observe.None || l.Build == "" || l.Panicked {
 			return fmt.Errorf("observation %d has handler %q, link %q, build %q, panicked %v",
 				i+1, l.Handler, l.Link, l.Build, l.Panicked)
+		}
+	}
+	return nil
+}
+
+// checkFollowed returns an error unless every line carries trace and node, the attempt's node id that `fv show`
+// takes; "" for both is a service not under fv, whose lines carry neither key.
+func checkFollowed(lines []line, trace, node string) error {
+	for i, l := range lines {
+		if l.Trace != trace || l.AttemptNode != node {
+			return fmt.Errorf("observation %d has the trace %q and the attempt node %q, want %q and %q",
+				i+1, l.Trace, l.AttemptNode, trace, node)
 		}
 	}
 	return nil
@@ -346,6 +365,34 @@ func TestReferenceService(t *testing.T) {
 		if err := checkLines(lines, observe.None, want); err != nil {
 			t.Errorf("%v\nstderr: %s", err, c.stderr)
 		}
+		if err := checkFollowed(lines, "", ""); err != nil {
+			t.Errorf("%v\nstderr: %s", err, c.stderr)
+		}
+	})
+
+	// fv's holder forwards an interrupt as it got it, as it does SIGTERM: the service drains on either.
+	t.Run("under fv a line carries the attempt's node, and an interrupt drains", func(t *testing.T) {
+		c := start(t, "127.0.0.1:0", fvEnv())
+		if status, _ := send(t, http.MethodGet, "http://"+c.address(t)+"/api/healthz", "", ""); status != http.StatusOK {
+			t.Errorf("the health route answered %d", status)
+		}
+		if err := c.cmd.Process.Signal(os.Interrupt); err != nil {
+			t.Fatal(err)
+		}
+		if status := c.status(t); status != exitDrained {
+			t.Errorf("exit status %d after an interrupt, want %d\nstdout: %s", status, exitDrained, c.stdout)
+		}
+		lines, err := parse(c.stderr.String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := []owed{{http.MethodGet, "routed", "GET /api/healthz", "ok", http.StatusOK}}
+		if err := checkLines(lines, fvPath, want); err != nil {
+			t.Errorf("%v\nstderr: %s", err, c.stderr)
+		}
+		if err := checkFollowed(lines, fvTrace, fvNode()); err != nil {
+			t.Errorf("%v\nstderr: %s", err, c.stderr)
+		}
 	})
 
 	// A save whose body never arrives is still running when the grace expires. The service's "100 Continue"
@@ -404,6 +451,32 @@ func TestReferenceServiceViolation(t *testing.T) {
 		"three lines":                      func(l []line) []line { return l[:3] },
 	} {
 		if checkLines(change(good()), fvPath, fourRequests) == nil {
+			t.Errorf("%s passed the check", name)
+		}
+	}
+	followed := func() []line {
+		lines := good()
+		for i := range lines {
+			lines[i].Trace, lines[i].AttemptNode = fvTrace, fvNode()
+		}
+		return lines
+	}
+	if err := checkFollowed(followed(), fvTrace, fvNode()); err != nil {
+		t.Fatalf("the four followed lines do not pass: %v", err)
+	}
+	if err := checkFollowed(good(), "", ""); err != nil {
+		t.Fatalf("the four lines of a service not under fv do not pass: %v", err)
+	}
+	for name, bad := range map[string]struct {
+		lines       []line
+		trace, node string
+	}{
+		"a line with no attempt node":      {func() []line { l := followed(); l[2].AttemptNode = ""; return l }(), fvTrace, fvNode()},
+		"the path as the attempt node":     {func() []line { l := followed(); l[0].AttemptNode = fvPath; return l }(), fvTrace, fvNode()},
+		"no keys under fv":                 {good(), fvTrace, fvNode()},
+		"keys from a service not under fv": {followed(), "", ""},
+	} {
+		if checkFollowed(bad.lines, bad.trace, bad.node) == nil {
 			t.Errorf("%s passed the check", name)
 		}
 	}

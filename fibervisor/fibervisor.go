@@ -2,8 +2,10 @@
 
 // Package fibervisor lets a service that fv holds state the attempt it runs in, and write its observations as
 // JSON lines. fv, the Fibervisor's supervisor, starts the whole server process as one leaf and gives it three
-// variables: TRACEPARENT, FV_PATH and FV_TRACE. Attempt reads them, Build reads the binary's own build
-// information, and Lines writes where the service says, which under fv is the output the leaf inherits.
+// variables: TRACEPARENT, FV_PATH and FV_TRACE. Attempt reads them, and Read keeps the trace and the attempt's
+// node id beside the path; Build reads the binary's own build information; Lines writes where the service says,
+// which under fv is the output the leaf inherits, and LinesOf adds the trace and the node to each line, so that
+// fv's own commands can be run from it. StopSignals names the signals fv stops a leaf with.
 //
 // What this package is not. It writes no fv record and reaches fv over nothing: an observation is the leaf's own
 // report about itself, kept beside fv's records and never among them, and a request is not a node of fv's tree.
@@ -15,7 +17,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
-	"os"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -50,11 +51,11 @@ const (
 // be TRACEPARENT's trace, where the door does not read FV_TRACE, and TRACEPARENT must be the 55 bytes fv writes,
 // where the door trims white space around it first.
 func Attempt() string {
-	path := os.Getenv("FV_PATH")
-	if !oneAttempt(os.Getenv("TRACEPARENT"), path, os.Getenv("FV_TRACE")) {
+	s, ok := Read()
+	if !ok {
 		return observe.None
 	}
-	return path
+	return s.Path
 }
 
 // oneAttempt reports whether the three values are what fv gives the leaf of one attempt.
@@ -97,11 +98,16 @@ func isAttemptPath(path string) bool {
 
 // isCall reports whether seg is q and a call's key: 20 lowercase hex digits.
 func isCall(seg string) bool {
-	if len(seg) != 21 || seg[0] != 'q' {
+	return len(seg) == 21 && seg[0] == 'q' && isHex(seg[1:], 20)
+}
+
+// isHex reports whether s is n lowercase hex digits.
+func isHex(s string, n int) bool {
+	if len(s) != n {
 		return false
 	}
-	for i := 1; i < len(seg); i++ {
-		if c := seg[i]; (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+	for i := 0; i < len(s); i++ {
+		if c := s[i]; (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			return false
 		}
 	}
@@ -170,17 +176,22 @@ func Lines(w io.Writer) observe.Sink {
 	return &lines{w: w}
 }
 
-// lines is the sink Lines returns.
+// lines is the sink Lines and LinesOf return.
 type lines struct {
-	mu  sync.Mutex
-	w   io.Writer
-	buf []byte
+	mu   sync.Mutex
+	w    io.Writer
+	buf  []byte
+	tail []byte // LinesOf's keys and the closing brace that replace the line's own brace; nil for Lines
 }
 
 // Observe writes o as one line.
 func (l *lines) Observe(o observe.Observation) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.buf = append(o.AppendJSON(l.buf[:0]), '\n')
+	l.buf = o.AppendJSON(l.buf[:0])
+	if l.tail != nil {
+		l.buf = append(l.buf[:len(l.buf)-1], l.tail...)
+	}
+	l.buf = append(l.buf, '\n')
 	_, _ = l.w.Write(l.buf)
 }

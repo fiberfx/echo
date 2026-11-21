@@ -3,8 +3,9 @@
 // Command reference is a small service on http.ServeMux that a supervisor such as fv can hold.
 //
 // What it shows: server, observe/stdhttp, fibervisor and outcome compose with no Echo type; every request is
-// named and observed as one JSON line on standard error, with the attempt fv gave the process; and the exit
-// status says how the service ended: 0 after a drained stop, 2 after a forced one, 1 when it could not serve.
+// named and observed as one JSON line on standard error, with the attempt fv gave the process, its trace and the
+// attempt's node id, which `fv show` takes; it stops on the signals fv stops a leaf with; and the exit status
+// says how the service ended: 0 after a drained stop, 2 after a forced one, 1 when it could not serve.
 //
 // What it does not show: it writes no fv record and reaches fv over nothing; its values live in memory and
 // are lost at exit; and its tests set the variables fv's code writes, they do not run it under a real fv.
@@ -27,7 +28,6 @@ import (
 	"os"
 	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/fiberfx/mx-echo/v6/fibervisor"
@@ -68,20 +68,22 @@ func command(args []string, stderr io.Writer, serve func(addr string) int) int {
 	return serve(*addr)
 }
 
-// serve runs the service until SIGTERM or an interrupt and returns the exit status.
+// serve runs the service until SIGTERM or an interrupt, the signals fv stops a leaf with, and returns the exit
+// status.
 func serve(addr string) int {
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
+	ctx, cancel := signal.NotifyContext(context.Background(), fibervisor.StopSignals()...)
 	defer cancel()
 	return run(ctx, addr, os.Stdout, os.Stderr)
 }
 
-// run serves on addr until ctx ends and returns the exit status. It reads the attempt and the build once,
+// run serves on addr until ctx ends and returns the exit status. It reads the supervision and the build once,
 // before the first request: an observation states the attempt the process started in, whatever the environment
-// says later.
+// says later. Not under fv, the supervision is zero: the attempt is none and the lines carry no trace or node.
 func run(ctx context.Context, addr string, stdout, stderr io.Writer) int {
+	s, _ := fibervisor.Read()
 	h := stdhttp.Wrap(newService(), observe.Observer{
-		Sink:    fibervisor.Lines(stderr),
-		Attempt: fibervisor.Attempt(),
+		Sink:    fibervisor.LinesOf(stderr, s),
+		Attempt: s.Path,
 		Build:   fibervisor.Build(),
 	})
 	logger := slog.New(slog.NewJSONHandler(stdout, nil))
