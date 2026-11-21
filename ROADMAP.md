@@ -1,5 +1,9 @@
 # MX Echo roadmap
 
+## v6.4.0
+
+A stop is reported, not assumed. A server started with `OnStop` reports whether its stop drained or was forced, after the listener closed, and a [server-scoped owner](server/) holds work that outlives a request until the stop. `Echo.Freeze` makes the route table and the middleware chains fixed once registration is done. Each is opt-in. The middleware's decisions are pure functions in one internal package.
+
 ## v6.3.0
 
 A request can be named and observed. `Config.Observer` is the one opt-in: it names each request before the first middleware and hands a sink one [observation](observe/) after the error handler ran, with the [name](reqid/), where routing ended, the registered pattern and how the request ended. Without it the request path is unchanged. The framework records nothing durable and restarts nothing: an observation is the service's own report.

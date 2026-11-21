@@ -1,5 +1,12 @@
 # Changelog
 
+## MX Echo v6.4.0
+
+- A server can say how it stopped. `server.StartConfig` and `echo.StartConfig` gain `OnStop`, called once after the listener closed and the stop ended, before `Start` returns. Its `server.StopReport` says whether the stop was requested, whether the grace expired first (`Forced`) and how many owned functions were still running (`Abandoned`). Setting `OnStop` also makes `Start` close the remaining connections when the grace expires. With `OnStop` unset, `Start` behaves as in v6.1.0 and still returns nil after a stop.
+- Added `server.Owner` for work that outlives a request. `Owner.Go` runs a function under a context that ends when the stop begins, and the server waits for the owner's functions within `GracefulTimeout`. A hijacked connection is neither waited for nor closed by the stop: give its work to an owner.
+- Added `Echo.Freeze`. After it, `AddRoute` returns `ErrRoutesFrozen`, and `Add`, `Pre`, `Use` and a group's `Use` panic with it, so the route table and the middleware chains cannot change while serving. `Freeze` returns an error and freezes nothing for a router made by `NewConcurrentRouter`. Routes added through `Router()` directly are not held. Without `Freeze` nothing changes.
+- The decisions of the redirect, compression, trailing-slash, static, CORS and CSRF middleware are pure functions kept once, in an internal package, and the root's static file handler uses the same code. No response changes. This release adds no public package for them.
+
 ## MX Echo v6.3.0
 
 - Added `Config.Observer`. With a sink set, every request is named before the first middleware and the sink receives one `observe.Observation` after the error handler ran: the name, an incoming `traceparent` kept as a link, the method, where routing ended, the registered pattern, the matched route's name, how the request ended and the status as written. `Context.RequestID` returns the name. With no sink the request path is the one of v6.1.0, and a routed request allocates nothing more.

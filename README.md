@@ -10,7 +10,7 @@ Open the directory containing [go.mod](go.mod) in GoLand or another Go editor. R
 | --- | --- |
 | `github.com/fiberfx/mx-echo/v6` | Route registration, request context, binding, responses and server lifecycle |
 | `github.com/fiberfx/mx-echo/v6/bind` | Convert strings and slices with pure functions, including defaults and typed time options |
-| `github.com/fiberfx/mx-echo/v6/server` | Serve any `http.Handler` with a caller-owned cancellation context, listener and shutdown policy |
+| `github.com/fiberfx/mx-echo/v6/server` | Serve any `http.Handler` with a caller-owned cancellation context, listener and shutdown policy, report how the stop ended and own work that outlives a request |
 | `github.com/fiberfx/mx-echo/v6/route/pattern` | Read a route pattern into its static, parameter and wildcard parts with pure functions |
 | `github.com/fiberfx/mx-echo/v6/outcome` | Classify how a request ended and decide the status of an error response with pure functions |
 | `github.com/fiberfx/mx-echo/v6/reqid` | Name a request with a small value ordered by time, and parse an incoming `traceparent` |
@@ -30,7 +30,7 @@ The `go` directive sets the minimum supported toolchain. To repeat the contribut
 
 ## Use v6 from an application
 
-To install v6.3.0 in an application module, run `go get github.com/fiberfx/mx-echo/v6@v6.3.0`.
+To install v6.4.0 in an application module, run `go get github.com/fiberfx/mx-echo/v6@v6.4.0`.
 
 While developing MX Echo and an application together, put their checkouts under a common parent. For an application module in `myapp`, run the following from the parent directory. If a workspace already exists there, use `go work use ./mx-echo ./myapp` to add the modules.
 
