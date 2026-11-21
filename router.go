@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+
+	"github.com/fiberfx/mx-echo/v6/route/pattern"
 )
 
 // Router is interface for routing request contexts to registered routes.
@@ -395,7 +397,7 @@ func (r *DefaultRouter) Remove(method string, path string) error {
 	}
 
 	path = normalizePathSlash(path)
-	treePath, paramMarkers := routeTreePath(parseRoutePath(path))
+	treePath, paramMarkers := routeTreePath(pattern.Parse(path))
 
 	var nodeToRemove *node
 	search := treePath
@@ -534,12 +536,12 @@ func (r *DefaultRouter) Add(route Route) (RouteInfo, error) {
 		headH = wrapHeadHandler(h)
 	}
 
-	parts := parseRoutePath(path)
+	parts := pattern.Parse(path)
 	var paramNames []string
 	for _, part := range parts {
-		if part.kind == paramKind {
-			paramNames = append(paramNames, part.value)
-		} else if part.kind == anyKind {
+		if part.Kind == pattern.Param {
+			paramNames = append(paramNames, part.Value)
+		} else if part.Kind == pattern.Any {
 			paramNames = append(paramNames, "*")
 			break
 		}
@@ -556,13 +558,13 @@ func (r *DefaultRouter) Add(route Route) (RouteInfo, error) {
 	pathEnd := 0
 addParts:
 	for i, part := range parts {
-		switch part.kind {
-		case staticKind:
-			pathEnd += len(part.value)
+		switch part.Kind {
+		case pattern.Static:
+			pathEnd += len(part.Value)
 			if i == len(parts)-1 {
 				r.insert(staticKind, treePath[:pathEnd], method, rm, paramMarkers)
 			}
-		case paramKind:
+		case pattern.Param:
 			r.insert(staticKind, treePath[:pathEnd], method, partial, paramMarkers)
 			pathEnd++
 			if i == len(parts)-1 {
@@ -570,7 +572,7 @@ addParts:
 			} else {
 				r.insert(paramKind, treePath[:pathEnd], method, partial, paramMarkers)
 			}
-		case anyKind:
+		case pattern.Any:
 			r.insert(staticKind, treePath[:pathEnd], method, partial, paramMarkers)
 			pathEnd++
 			r.insert(anyKind, treePath[:pathEnd], method, rm, paramMarkers)

@@ -67,63 +67,58 @@ type ProblemErrorer interface {
 // need to be logged (separately).
 func ProblemDetailsHTTPErrorHandler(exposeError bool) HTTPErrorHandler {
 	return func(c *Context, err error) {
-		if r, _ := UnwrapResponse(c.response); r != nil && r.Committed {
+		d := decideError(c, err)
+		if !d.Write {
 			return
 		}
+		problem := problemFor(err, d.Status, exposeError)
+		c.Response().Header().Set(HeaderContentType, MIMEApplicationProblemJSON)
+		writeError(c, problem.Status, &problem, "echo RFC 9457 error handler failed to send error to client")
+	}
+}
 
-		pe, hasProblem := errors.AsType[*ProblemError](err)
-		var pder ProblemErrorer
-		switch {
-		case hasProblem:
-		case errors.As(err, &pder):
-			if pe = pder.ProblemError(); pe == nil {
-				pe = &ProblemError{}
-			}
-		default:
-			pe = &ProblemError{Status: StatusCode(err)}
+// problemFor returns the problem ProblemDetailsHTTPErrorHandler answers err with, by the precedence that handler
+// documents. status is used only when err holds no problem of its own. It writes nothing.
+func problemFor(err error, status int, exposeError bool) ProblemError {
+	pe, hasProblem := errors.AsType[*ProblemError](err)
+	var pder ProblemErrorer
+	switch {
+	case hasProblem:
+	case errors.As(err, &pder):
+		if pe = pder.ProblemError(); pe == nil {
+			pe = &ProblemError{}
+		}
+	default:
+		pe = &ProblemError{Status: status}
 
-			if he, ok := errors.AsType[*HTTPError](err); ok {
-				pe.Detail = he.Message
-				if exposeError {
-					if wrapped := he.Unwrap(); wrapped != nil {
-						if pe.Detail == "" {
-							pe.Detail = wrapped.Error()
-						} else {
-							pe.Detail = fmt.Sprintf("%s: %s", pe.Detail, wrapped.Error())
-						}
+		if he, ok := errors.AsType[*HTTPError](err); ok {
+			pe.Detail = he.Message
+			if exposeError {
+				if wrapped := he.Unwrap(); wrapped != nil {
+					if pe.Detail == "" {
+						pe.Detail = wrapped.Error()
+					} else {
+						pe.Detail = fmt.Sprintf("%s: %s", pe.Detail, wrapped.Error())
 					}
 				}
-			} else if exposeError {
-				pe.Detail = err.Error()
 			}
-		}
-
-		// The problem can be a value the application reuses, for example a package
-		// level sentinel error, so the defaults are applied to a copy. Writing them
-		// back would race between requests and would permanently alter the error.
-		problem := *pe
-		if problem.Status == 0 {
-			problem.Status = http.StatusInternalServerError
-		}
-		if problem.Type == "" {
-			problem.Type = "about:blank"
-		}
-		if problem.Title == "" {
-			problem.Title = http.StatusText(problem.Status)
-		}
-
-		header := c.Response().Header()
-		clearRepresentationHeaders(header)
-		header.Set(HeaderContentType, MIMEApplicationProblemJSON)
-
-		var cErr error
-		if c.Request().Method == http.MethodHead { // Issue #608
-			cErr = c.NoContent(problem.Status)
-		} else {
-			cErr = c.JSON(problem.Status, &problem)
-		}
-		if cErr != nil {
-			c.Logger().Error("echo RFC 9457 error handler failed to send error to client", "error", cErr) // truly rare case. ala client already disconnected
+		} else if exposeError {
+			pe.Detail = err.Error()
 		}
 	}
+
+	// The problem can be a value the application reuses, for example a package
+	// level sentinel error, so the defaults are applied to a copy. Writing them
+	// back would race between requests and would permanently alter the error.
+	problem := *pe
+	if problem.Status == 0 {
+		problem.Status = http.StatusInternalServerError
+	}
+	if problem.Type == "" {
+		problem.Type = "about:blank"
+	}
+	if problem.Title == "" {
+		problem.Title = http.StatusText(problem.Status)
+	}
+	return problem
 }

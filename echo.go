@@ -60,6 +60,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
+
+	"github.com/fiberfx/mx-echo/v6/outcome"
 )
 
 // Echo is the top-level framework instance.
@@ -469,52 +471,65 @@ func clearRepresentationHeaders(h http.Header) {
 // response and status code header has been sent to the client.
 func DefaultHTTPErrorHandler(exposeError bool) HTTPErrorHandler {
 	return func(c *Context, err error) {
-		if r, _ := UnwrapResponse(c.response); r != nil && r.Committed {
+		d := decideError(c, err)
+		if !d.Write {
 			return
 		}
+		writeError(c, d.Status, defaultErrorBody(err, d.Status, exposeError), "echo default error handler failed to send error to client")
+	}
+}
 
-		code := http.StatusInternalServerError
-		var sc HTTPStatusCoder
-		if errors.As(err, &sc) {
-			if tmp := sc.StatusCode(); tmp != 0 {
-				code = tmp
-			}
-		}
+// decideError asks outcome.Decide for the status half of the error rule: the status err states, 500 when it
+// states none, and nothing to write once the response is committed. A committed response is answered without
+// looking at err.
+func decideError(c *Context, err error) outcome.Decision {
+	if r, _ := UnwrapResponse(c.response); r != nil && r.Committed {
+		return outcome.Decide(0, true)
+	}
+	return outcome.Decide(StatusCode(err), false)
+}
 
-		var result any
-		switch m := sc.(type) {
-		case json.Marshaler: // this type knows how to format itself to JSON
-			result = m
-		case *HTTPError:
-			sText := m.Message
-			if sText == "" {
-				sText = http.StatusText(code)
-			}
-			msg := map[string]any{"message": sText}
-			if exposeError {
-				if wrappedErr := m.Unwrap(); wrappedErr != nil {
-					msg["error"] = wrappedErr.Error()
-				}
-			}
-			result = msg
-		default:
-			msg := map[string]any{"message": http.StatusText(code)}
-			if exposeError {
-				msg["error"] = err.Error()
-			}
-			result = msg
+// defaultErrorBody returns the value DefaultHTTPErrorHandler encodes for err when it answers with code.
+// It writes nothing.
+func defaultErrorBody(err error, code int, exposeError bool) any {
+	var sc HTTPStatusCoder
+	_ = errors.As(err, &sc)
+	switch m := sc.(type) {
+	case json.Marshaler: // this type knows how to format itself to JSON
+		return m
+	case *HTTPError:
+		sText := m.Message
+		if sText == "" {
+			sText = http.StatusText(code)
 		}
+		msg := map[string]any{"message": sText}
+		if exposeError {
+			if wrappedErr := m.Unwrap(); wrappedErr != nil {
+				msg["error"] = wrappedErr.Error()
+			}
+		}
+		return msg
+	default:
+		msg := map[string]any{"message": http.StatusText(code)}
+		if exposeError {
+			msg["error"] = err.Error()
+		}
+		return msg
+	}
+}
 
-		clearRepresentationHeaders(c.Response().Header())
-		var cErr error
-		if c.Request().Method == http.MethodHead { // Issue #608
-			cErr = c.NoContent(code)
-		} else {
-			cErr = c.JSON(code, result)
-		}
-		if cErr != nil {
-			c.Logger().Error("echo default error handler failed to send error to client", "error", cErr) // truly rare case. ala client already disconnected
-		}
+// writeError is the one effect of the two default error handlers. It drops the headers of the representation the
+// error replaces, then sends code with body, or with no body for HEAD. A send that fails is logged with failure.
+func writeError(c *Context, code int, body any, failure string) {
+	clearRepresentationHeaders(c.Response().Header())
+	var cErr error
+	if c.Request().Method == http.MethodHead { // Issue #608
+		cErr = c.NoContent(code)
+	} else {
+		cErr = c.JSON(code, body)
+	}
+	if cErr != nil {
+		c.Logger().Error(failure, "error", cErr) // truly rare case. ala client already disconnected
 	}
 }
 

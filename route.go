@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+
+	"github.com/fiberfx/mx-echo/v6/route/pattern"
 )
 
 // Route contains information to adding/registering new route with the router.
@@ -81,25 +83,25 @@ func (r RouteInfo) Clone() RouteInfo {
 func (r RouteInfo) Reverse(pathValues ...any) string {
 	uri := new(bytes.Buffer)
 	nextValue := 0
-	walkRoutePath(r.Path, func(part routePathPart) {
-		switch part.kind {
-		case staticKind:
-			uri.WriteString(part.value)
-		case paramKind:
+	pattern.Walk(r.Path, func(part pattern.Part) {
+		switch part.Kind {
+		case pattern.Static:
+			uri.WriteString(part.Value)
+		case pattern.Param:
 			if nextValue < len(pathValues) {
 				fmt.Fprint(uri, pathValues[nextValue])
 				nextValue++
 			} else {
 				// placeholder for a missing value. An escaped colon in a param name is written without its backslash.
 				uri.WriteByte(paramLabel)
-				uri.WriteString(strings.ReplaceAll(part.value, `\:`, ":"))
+				uri.WriteString(strings.ReplaceAll(part.Value, `\:`, ":"))
 			}
-		case anyKind:
+		case pattern.Any:
 			if nextValue < len(pathValues) {
 				fmt.Fprint(uri, pathValues[nextValue])
 				nextValue++
 			} else {
-				uri.WriteString(strings.ReplaceAll(part.value, `\:`, ":"))
+				uri.WriteString(strings.ReplaceAll(part.Value, `\:`, ":"))
 			}
 		}
 	})
