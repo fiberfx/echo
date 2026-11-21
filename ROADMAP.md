@@ -1,5 +1,9 @@
 # MX Echo roadmap
 
+## v6.8.0
+
+The names held back in v6.6.0 ship, each opt-in. A server's main reads its exit status from the stop report, a COR reads back from JSON, and a supervised service can name a request's node, carry it on outgoing calls, and start a child that fv records under the attempt. Not yet shown under a running fv: the child and link environments, the outgoing traceparent, and the grace, which waits for fv to state it.
+
 ## v6.7.1
 
 A patch from the second train's review. `LinesOf` keeps v6.6.0's output for a hand-built supervision, a percent-encoded COR in Baggage is read, and the internal MCP rules refuse a legacy initialize no served revision can answer.
