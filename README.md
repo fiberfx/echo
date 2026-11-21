@@ -32,7 +32,7 @@ The `go` directive sets the minimum supported toolchain. To repeat the contribut
 
 ## Use v6 from an application
 
-To install v6.5.0 in an application module, run `go get github.com/fiberfx/mx-echo/v6@v6.5.0`.
+To install v6.6.0 in an application module, run `go get github.com/fiberfx/mx-echo/v6@v6.6.0`.
 
 While developing MX Echo and an application together, put their checkouts under a common parent. For an application module in `myapp`, run the following from the parent directory. If a workspace already exists there, use `go work use ./mx-echo ./myapp` to add the modules.
 

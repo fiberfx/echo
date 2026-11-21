@@ -1,5 +1,14 @@
 # Changelog
 
+## MX Echo v6.6.0
+
+- Added `fibervisor.Read`, which returns the attempt fv runs the service in as a `Supervision`: the trace, the attempt's path and `AttemptNode`, fv's node id of the attempt, the value `fv show` and `fv stop` accept. It applies `Attempt`'s test once, and `Attempt` is unchanged.
+- Added `fibervisor.LinesOf`, the sink `Lines` returns with `trace` and `attempt_node` added to each line, so that `fv show` can be run from any line. For a process fv does not hold it writes exactly what `Lines` writes.
+- Added `fibervisor.StopSignals`, the signals fv stops a leaf with: SIGTERM and an interrupt. A service hands them to `signal.NotifyContext`; the package installs no handler and exits nothing.
+- `examples/reference` reads the supervision once, writes its lines with `LinesOf` and stops on `StopSignals`. Its exit statuses are unchanged.
+- `TestRootImports` now reads every package of the module that the root imports, directly or through another, so code moved into an internal package is held to the same rule: no import of `fibervisor` or `observe/stdhttp`, and no read of fv's environment. The root package and the middleware are unchanged.
+- Checked under a real fv, built from jonnify 9328679 by the stand's G-FV row: `fv run` starts the reference service; `fv show` given the `attempt_node` of one of its lines exits 0 and names the service's pid, and that node is the attempt in fv's tree; `fv show` refuses a request's id, since a request is not an fv node; after `fv stop` the service drains, exits 0 and leaves no process of its group.
+
 ## MX Echo v6.5.0
 
 - Added `fibervisor`, the opt-in join with the fv supervisor. `fibervisor.Attempt` returns the attempt path fv gave the process when `TRACEPARENT`, `FV_PATH` and `FV_TRACE` describe one fv attempt, and `none` otherwise; a service calls it once at start and hands the value to its observer. `fibervisor.Build` returns the main module's identity from the binary's build information. `fibervisor.Lines` is a sink that writes each observation as one JSON line. The package writes no fv record and reaches fv over nothing, and the root package does not import it.

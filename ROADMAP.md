@@ -1,5 +1,9 @@
 # MX Echo roadmap
 
+## v6.6.0
+
+An observation line names its attempt the way fv's commands do. [fibervisor](fibervisor/) reads the attempt's trace, path and node id once, writes the trace and the node id into each line, and names the signals fv stops a leaf with; the [reference service](examples/reference/) uses all three. The root package still imports none of it, and a test now holds that for every package the root imports.
+
 ## v6.5.0
 
 The join with a supervisor is a package a service opts into. [fibervisor](fibervisor/) reads the attempt fv gave the process and writes observations as JSON lines; [observe/stdhttp](observe/stdhttp/) gives any `http.Handler` the same named, observed request; the [reference service](examples/reference/) shows both on the standard mux with an exit status a supervisor can read. The root package imports neither. Not yet shown: the reference service under a running fv.
