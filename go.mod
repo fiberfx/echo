@@ -1,4 +1,4 @@
-module github.com/fiberfx/echo/v6
+module github.com/fiberfx/mx-echo/v6
 
 go 1.27.4
 

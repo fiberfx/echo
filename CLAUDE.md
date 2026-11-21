@@ -1,6 +1,6 @@
-# Working on FiberFX Echo
+# Working on MX Echo
 
-Open the module root in GoLand or use the Go tools from that directory. The module is `github.com/fiberfx/echo/v6`. Its minimum Go version is 1.27.4. The [README](README.md) includes a tested server example and the steps for developing Echo and an application in the same Go workspace.
+Open the module root in GoLand or use the Go tools from that directory. The module is `github.com/fiberfx/mx-echo/v6`. Its minimum Go version is 1.27.4. The [README](README.md) includes a tested server example and the steps for developing Echo and an application in the same Go workspace.
 
 ## Development commands
 

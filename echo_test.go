@@ -660,7 +660,7 @@ func TestEchoFile(t *testing.T) {
 			givenFile:        "./go.mod",
 			whenPath:         "/",
 			expectCode:       http.StatusOK,
-			expectStartsWith: "module github.com/fiberfx/echo/v6\n",
+			expectStartsWith: "module github.com/fiberfx/mx-echo/v6\n",
 		},
 		{
 			name:             "nok file does not exist",

@@ -39,22 +39,22 @@ func TestHandlerName(t *testing.T) {
 			whenHandlerFunc: func(c *Context) error {
 				return nil
 			},
-			expect: "github.com/fiberfx/echo/v6.TestHandlerName.func2",
+			expect: "github.com/fiberfx/mx-echo/v6.TestHandlerName.func2",
 		},
 		{
 			name:            "ok, func as named package variable",
 			whenHandlerFunc: myNamedHandler,
-			expect:          "github.com/fiberfx/echo/v6.init.func4",
+			expect:          "github.com/fiberfx/mx-echo/v6.init.func4",
 		},
 		{
 			name:            "ok, func as named function variable",
 			whenHandlerFunc: myNameFuncVar,
-			expect:          "github.com/fiberfx/echo/v6.TestHandlerName.func1",
+			expect:          "github.com/fiberfx/mx-echo/v6.TestHandlerName.func1",
 		},
 		{
 			name:            "ok, func as struct method",
 			whenHandlerFunc: tmp.getUsers,
-			expect:          "github.com/fiberfx/echo/v6.(*NameStruct).getUsers-fm",
+			expect:          "github.com/fiberfx/mx-echo/v6.(*NameStruct).getUsers-fm",
 		},
 	}
 

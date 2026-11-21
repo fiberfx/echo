@@ -1,9 +1,9 @@
-# FiberFX Echo v6
+# MX Echo v6
 
-> Echo is a high performance, extensible, minimalist Go web framework built on the standard `net/http` library. Echo adds a fast radix-tree router, request binding with pluggable validator, a deep middleware ecosystem, centralized error handling, and template rendering on top of the standard library.
+> MX Echo is a high performance, extensible, minimalist Go web framework built on the standard `net/http` library. Echo adds a fast radix-tree router, request binding with pluggable validator, a deep middleware ecosystem, centralized error handling, and template rendering on top of the standard library.
 
 Key facts for LLMs:
-- Import path is `github.com/fiberfx/echo/v6`
+- Import path is `github.com/fiberfx/mx-echo/v6`
 - Handlers use `*echo.Context` (pointer to struct)
 - `Context` is a concrete struct, not an interface
 - Logging uses `log/slog`
@@ -24,8 +24,8 @@ import (
     "log/slog"
     "net/http"
 
-    "github.com/fiberfx/echo/v6"
-    "github.com/fiberfx/echo/v6/middleware"
+    "github.com/fiberfx/mx-echo/v6"
+    "github.com/fiberfx/mx-echo/v6/middleware"
 )
 
 func hello(c *echo.Context) error {

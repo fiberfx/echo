@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: © 2015 LabStack LLC and Echo contributors
 
 /*
-Package echo implements high performance, minimalist Go web framework.
+Package echo implements MX Echo, a minimalist Go HTTP framework.
 
 Example:
 
@@ -12,8 +12,8 @@ Example:
 		"log/slog"
 		"net/http"
 
-		"github.com/fiberfx/echo/v6"
-		"github.com/fiberfx/echo/v6/middleware"
+		"github.com/fiberfx/mx-echo/v6"
+		"github.com/fiberfx/mx-echo/v6/middleware"
 	)
 
 	// Handler
@@ -38,7 +38,7 @@ Example:
 		}
 	}
 
-Learn more at https://github.com/fiberfx/echo
+Learn more at https://github.com/fiberfx/mx-echo
 */
 package echo
 

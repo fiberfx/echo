@@ -6,7 +6,7 @@ package middleware
 import (
 	"context"
 	"errors"
-	"github.com/fiberfx/echo/v6"
+	"github.com/fiberfx/mx-echo/v6"
 	"net/http"
 	"net/http/httptest"
 	"net/url"

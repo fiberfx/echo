@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/fiberfx/echo/v6"
+	"github.com/fiberfx/mx-echo/v6"
 )
 
 // KeyAuthConfig defines the config for KeyAuth middleware.

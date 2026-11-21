@@ -8,7 +8,7 @@ import (
 	"maps"
 	"regexp"
 
-	"github.com/fiberfx/echo/v6"
+	"github.com/fiberfx/mx-echo/v6"
 )
 
 // RewriteConfig defines the config for Rewrite middleware.

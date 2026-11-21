@@ -17,7 +17,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/fiberfx/echo/v6"
+	"github.com/fiberfx/mx-echo/v6"
 )
 
 // StaticConfig defines the config for Static middleware.

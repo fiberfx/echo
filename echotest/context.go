@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/fiberfx/echo/v6"
+	"github.com/fiberfx/mx-echo/v6"
 )
 
 // ContextConfig is configuration for creating echo.Context for testing purposes.

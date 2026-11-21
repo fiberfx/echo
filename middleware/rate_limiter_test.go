@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fiberfx/echo/v6"
+	"github.com/fiberfx/mx-echo/v6"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/time/rate"
 )

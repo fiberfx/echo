@@ -1,10 +1,14 @@
-# FiberFX Echo roadmap
+# MX Echo roadmap
+
+## v6.1.0
+
+MX Echo uses `github.com/fiberfx/mx-echo/v6`. Applications migrating from the original v6.0.0 release must update imports in dependent packages together.
 
 ## v6.0.0
 
-The first FiberFX version uses the module path `github.com/fiberfx/echo/v6` and requires Go 1.27.4. The root package, middleware and test helpers share one release. The [contributor guide](README.md#open-the-workspace) explains how to open the module and test an application against a local checkout.
+The first FiberFX version was released under the module path `github.com/fiberfx/echo/v6` and requires Go 1.27.4. The root package, middleware and test helpers share one release. The [contributor guide](README.md#open-the-workspace) explains how to open the module and test an application against a local checkout.
 
-The [v6.0.0 release](https://github.com/fiberfx/echo/releases/tag/v6.0.0) contains the framework, middleware and test helpers. Existing LabStack v4 and v5 releases retain their upstream module paths. Applications that expose Echo types through another package must migrate that package as well.
+The [v6.0.0 release](https://github.com/fiberfx/mx-echo/releases/tag/v6.0.0) contains the framework, middleware and test helpers. Existing LabStack v4 and v5 releases retain their upstream module paths. Applications that expose Echo types through another package must migrate that package as well.
 
 ## Under consideration
 

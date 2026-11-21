@@ -530,7 +530,7 @@ func TestStartConfig_WithHideBanner(t *testing.T) {
 			}
 			assert.NoError(t, <-errCh)
 
-			contains := strings.Contains(buf.String(), "High performance, minimalist Go web framework")
+			contains := strings.Contains(buf.String(), "MX Echo (v"+Version+"). High performance, minimalist Go web framework https://github.com/fiberfx/mx-echo")
 			if tc.hideBanner {
 				assert.False(t, contains)
 			} else {

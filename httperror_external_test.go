@@ -7,7 +7,7 @@ package echo_test
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/fiberfx/echo/v6"
+	"github.com/fiberfx/mx-echo/v6"
 	"net/http"
 	"net/http/httptest"
 )

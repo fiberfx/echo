@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fiberfx/echo/v6"
+	"github.com/fiberfx/mx-echo/v6"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/websocket"
 )

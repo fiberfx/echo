@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/fiberfx/echo/v6"
+	"github.com/fiberfx/mx-echo/v6"
 )
 
 // BodyDumpConfig defines the config for BodyDump middleware.

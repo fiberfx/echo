@@ -1,5 +1,10 @@
 # Changelog
 
+## MX Echo v6.1.0
+
+- The module moves to `github.com/fiberfx/mx-echo/v6`. Update imports of the framework, middleware and test helpers together. The Go package name remains `echo`.
+- The startup banner identifies MX Echo and links to the renamed repository.
+
 ## FiberFX v6.0.0 — 2026-11-21
 
 - The module path is `github.com/fiberfx/echo/v6`. The core framework, middleware and test helpers require Go 1.27.4. Update all three imports together when moving from LabStack v5.4.6.
