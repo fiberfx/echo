@@ -27,8 +27,8 @@ var (
 // Supervision removes TRACEPARENT, FV_PATH and FV_TRACE and adds nothing. base is not changed.
 //
 // The other entries of base keep their order, and the new ones follow them. A state variable this process does
-// not have is removed from base and not added. The result is a new slice, whatever s is. A nil base is an empty
-// one, not os/exec's nil, which is the parent's whole environment: a service passes os.Environ() for that.
+// not have is removed from base and not added. The result is a new slice, whatever s is. A nil base is
+// os.Environ(), as a nil os/exec.Cmd.Env is; a non-nil empty base stays empty but for the added names.
 func (s Supervision) Env(base []string) []string {
 	if !s.held() {
 		return without(base, placeNames)
@@ -66,8 +66,11 @@ func appendState(env []string) []string {
 }
 
 // without returns a new slice of the entries of base whose name is not one of names, in base's order, with room
-// for six more. An entry with no '=' is kept.
+// for six more; a nil base is os.Environ(). An entry with no '=' is kept.
 func without(base []string, names []string) []string {
+	if base == nil {
+		base = os.Environ()
+	}
 	env := make([]string, 0, len(base)+len(envNames))
 	for _, kv := range base {
 		name, _, ok := strings.Cut(kv, "=")

@@ -135,9 +135,47 @@ func TestEnvNotSupervised(t *testing.T) {
 			t.Errorf("%s changed base to %q", tt.name, base)
 		}
 	}
-	// A nil base gives an empty environment, not nil's meaning in os/exec, which is the parent's whole environment.
-	if got := (fibervisor.Supervision{}).Env(nil); got == nil || len(got) != 0 {
-		t.Errorf("Env(nil) = %#v for the zero Supervision, want an empty slice", got)
+	// A non-nil empty base stays empty: the zero Supervision adds nothing to it.
+	if got := (fibervisor.Supervision{}).Env([]string{}); got == nil || len(got) != 0 {
+		t.Errorf("Env([]string{}) = %#v for the zero Supervision, want an empty slice", got)
+	}
+}
+
+// TestEnvNilBase holds a nil base to os.Environ(), as a nil os/exec.Cmd.Env is, and a non-nil empty base to only
+// the added names.
+func TestEnvNilBase(t *testing.T) {
+	leaf(fvTrace, fvAttempt).set(t)
+	childState(t)
+	t.Setenv("PATH", "/svc/bin")
+	// A nil base is the whole environment, as os/exec's is, so FV_CRASH is the caller's to unset: this test does.
+	if err := os.Unsetenv("FV_CRASH"); err != nil {
+		t.Fatal(err)
+	}
+	s, _ := fibervisor.Read()
+	node, _ := s.RequestNode(fvRequestID)
+	attempt, linked := header(fvTrace, derive(fvTrace, fvAttempt)), header(fvTrace, node)
+	for _, tt := range []struct {
+		name                     string
+		got                      func([]string) []string
+		traceparent, path, trace string
+		added                    []string
+	}{
+		{"Env", s.Env, attempt, fvAttempt, fvTrace, []string{"TRACEPARENT=" + attempt, "FV_PATH=" + fvAttempt, "FV_TRACE=" + fvTrace, "FV_STATE=/state", "HOME=/home/svc"}},
+		{"LinkEnv", func(b []string) []string { return s.LinkEnv(b, fvRequestID) }, linked, "", "", []string{"TRACEPARENT=" + linked, "FV_STATE=/state", "HOME=/home/svc"}},
+	} {
+		got := tt.got(nil)
+		if v := lookup(got, "PATH"); len(v) != 1 || v[0] != "/svc/bin" {
+			t.Errorf("%s(nil): PATH=%q, want this process's [\"/svc/bin\"]", tt.name, v)
+		}
+		if !slices.Equal(got[len(got)-len(tt.added):], tt.added) {
+			t.Errorf("%s(nil) ends %q, want %q", tt.name, got[len(got)-len(tt.added):], tt.added)
+		}
+		if err := checkFrame(got, tt.traceparent, tt.path, tt.trace); err != nil {
+			t.Errorf("%s(nil): %v", tt.name, err)
+		}
+		if got := tt.got([]string{}); !slices.Equal(got, tt.added) {
+			t.Errorf("%s([]string{}) = %q, want only the added names %q", tt.name, got, tt.added)
+		}
 	}
 }
 
