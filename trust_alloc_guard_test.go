@@ -10,14 +10,15 @@ import (
 )
 
 // Allocations per call of the IP and scheme extractors, measured on the stand at 2db3c81 before their bodies
-// moved to internal/trust. A count that differs after the move is red.
+// moved to internal/trust (run l-trust-1, 20261121T102131Z, commit 66e8c3c). A count that differs after the move
+// is red.
 const (
-	trustXFFAllocs           = -1
-	trustRealIPAllocs        = -1
-	trustSchemeAllocs        = -1
-	trustContextRealIPAllocs = -1
-	trustContextDirectAllocs = -1
-	trustContextSchemeAllocs = -1
+	trustXFFAllocs           = 3
+	trustRealIPAllocs        = 0
+	trustSchemeAllocs        = 0
+	trustContextRealIPAllocs = 3
+	trustContextDirectAllocs = 0
+	trustContextSchemeAllocs = 0
 )
 
 // trustAllocSink keeps each extracted value alive.
