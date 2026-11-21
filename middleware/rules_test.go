@@ -15,11 +15,11 @@ import (
 	"testing"
 
 	"github.com/fiberfx/mx-echo/v6"
-	"github.com/fiberfx/mx-echo/v6/httprule"
+	"github.com/fiberfx/mx-echo/v6/internal/httprule"
 )
 
 // ruleTablePath is the table httprule's own TestRules reads: one table per decision, shared by both tests.
-const ruleTablePath = "../httprule/testdata/rules.json"
+const ruleTablePath = "../internal/httprule/testdata/rules.json"
 
 type ruleTable struct {
 	Redirect      []redirectRow      `json:"redirect"`
@@ -517,7 +517,7 @@ func TestRulesThroughMiddlewareViolation(t *testing.T) {
 	if checkWildcardPathThrough(wildcardPathRow{P: "file", RoutePath: "/assets"}) == nil {
 		t.Error("a route with no wildcard passed the wildcard check")
 	}
-	if _, err := loadRuleTable("../httprule/testdata/no-such-table.json"); err == nil {
+	if _, err := loadRuleTable("../internal/httprule/testdata/no-such-table.json"); err == nil {
 		t.Error("a missing table was loaded")
 	}
 }

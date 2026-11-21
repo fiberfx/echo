@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/fiberfx/mx-echo/v6"
-	"github.com/fiberfx/mx-echo/v6/httprule"
+	"github.com/fiberfx/mx-echo/v6/internal/httprule"
 )
 
 // CORSConfig defines the config for CORS middleware.

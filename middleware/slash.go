@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/fiberfx/mx-echo/v6"
-	"github.com/fiberfx/mx-echo/v6/httprule"
+	"github.com/fiberfx/mx-echo/v6/internal/httprule"
 )
 
 // AddTrailingSlashConfig is the middleware config for adding trailing slash to the request.

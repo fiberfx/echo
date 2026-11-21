@@ -18,7 +18,7 @@ import (
 	"sync"
 
 	"github.com/fiberfx/mx-echo/v6"
-	"github.com/fiberfx/mx-echo/v6/httprule"
+	"github.com/fiberfx/mx-echo/v6/internal/httprule"
 )
 
 // StaticConfig defines the config for Static middleware.
