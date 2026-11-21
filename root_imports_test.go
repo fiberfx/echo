@@ -29,15 +29,18 @@ import (
 
 const rootImportsModule = "github.com/fiberfx/mx-echo/v6/"
 
-// rootImportsAllowed holds the module's packages the root may import.
+// rootImportsAllowed holds the module's packages the root may import. internal/trust and internal/bindengine are
+// listed before they exist (v6.6.1, v6.6.2), so that the cars moving the root's bodies into them pass on their own.
 var rootImportsAllowed = map[string]bool{
-	rootImportsModule + "bind":              true,
-	rootImportsModule + "server":            true,
-	rootImportsModule + "route/pattern":     true,
-	rootImportsModule + "outcome":           true,
-	rootImportsModule + "reqid":             true,
-	rootImportsModule + "observe":           true,
-	rootImportsModule + "internal/httprule": true,
+	rootImportsModule + "bind":                true,
+	rootImportsModule + "server":              true,
+	rootImportsModule + "route/pattern":       true,
+	rootImportsModule + "outcome":             true,
+	rootImportsModule + "reqid":               true,
+	rootImportsModule + "observe":             true,
+	rootImportsModule + "internal/httprule":   true,
+	rootImportsModule + "internal/trust":      true,
+	rootImportsModule + "internal/bindengine": true,
 }
 
 // rootImportsRefused names the packages of the join, so that an import of one says why it is refused.
