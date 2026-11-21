@@ -46,6 +46,12 @@ type StartConfig struct {
 	// OnShutdownError is called when graceful shutdown results an error. for example when listeners are not shut down within
 	// given timeout
 	OnShutdownError func(err error)
+	// OnStop is called once, after the listener closed and the stop ended, before Start returns.
+	// Setting it also makes Start close the remaining connections when the grace expires; with it nil, Start
+	// behaves as at v6.1.0 (it returns while those requests still run).
+	OnStop func(server.StopReport)
+	// Owner is cancelled when the stop begins and waited for within GracefulTimeout.
+	Owner *server.Owner
 
 	// BeforeServeFunc is callback that is called just before server starts to serve HTTP request.
 	// Use this callback when you want to configure http.Server different timeouts/limits/etc
@@ -74,6 +80,8 @@ func (sc StartConfig) serverConfig(h http.Handler) server.StartConfig {
 		ListenerAddrFunc: sc.ListenerAddrFunc,
 		GracefulTimeout:  sc.GracefulTimeout,
 		OnShutdownError:  sc.OnShutdownError,
+		OnStop:           sc.OnStop,
+		Owner:            sc.Owner,
 		BeforeServeFunc:  sc.BeforeServeFunc,
 		BannerVersion:    Version,
 	}

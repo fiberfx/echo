@@ -63,6 +63,12 @@ type StartConfig struct {
 	// OnShutdownError is called when graceful shutdown results an error. for example when listeners are not shut down within
 	// given timeout
 	OnShutdownError func(err error)
+	// OnStop is called once, after the listener closed and the stop ended, before Start returns.
+	// Setting it also makes Start close the remaining connections when the grace expires; with it nil, Start
+	// behaves as at v6.1.0 (it returns while those requests still run).
+	OnStop func(StopReport)
+	// Owner is cancelled when the stop begins and waited for within GracefulTimeout.
+	Owner *Owner
 
 	// BeforeServeFunc is callback that is called just before server starts to serve HTTP request.
 	// Use this callback when you want to configure http.Server different timeouts/limits/etc
@@ -156,15 +162,18 @@ func (sc StartConfig) start(ctx stdContext.Context, h http.Handler) error {
 		logger.Info("http(s) server started", "address", listener.Addr().String())
 	}
 
+	var report StopReport
+	defer sc.stopped(&report, logger) // runs after wg.Wait: OnStop sees a stop that has ended
+
 	wg := sync.WaitGroup{}
 	defer wg.Wait() // wait for graceful shutdown goroutine to finish
 
-	gCtx, cancel := stdContext.WithCancel(ctx) // end graceful goroutine when Serve returns early
-	defer cancel()
+	gCtx, cancel := stdContext.WithCancelCause(ctx) // end graceful goroutine when Serve returns early
+	defer cancel(errServeEnded)
 
 	if sc.GracefulTimeout >= 0 {
 		wg.Go(func() {
-			gracefulShutdown(gCtx, &sc, &server, logger)
+			report = gracefulShutdown(gCtx, &sc, &server, logger)
 		})
 	}
 
@@ -185,9 +194,10 @@ func filepathOrContent(fileOrContent any, certFilesystem fs.FS) (content []byte,
 	}
 }
 
-func gracefulShutdown(shutdownCtx stdContext.Context, sc *StartConfig, server *http.Server, logger *slog.Logger) {
+func gracefulShutdown(shutdownCtx stdContext.Context, sc *StartConfig, server *http.Server, logger *slog.Logger) StopReport {
 	<-shutdownCtx.Done() // wait until shutdown context is closed.
 	// note: is server if closed by other means this method is still run but is good as no-op
+	report := sc.beginStop(shutdownCtx)
 
 	timeout := sc.GracefulTimeout
 	if timeout == 0 {
@@ -196,12 +206,15 @@ func gracefulShutdown(shutdownCtx stdContext.Context, sc *StartConfig, server *h
 	waitShutdownCtx, cancel := stdContext.WithTimeout(stdContext.Background(), timeout)
 	defer cancel()
 
-	if err := server.Shutdown(waitShutdownCtx); err != nil {
+	err := server.Shutdown(waitShutdownCtx)
+	sc.endGrace(waitShutdownCtx, server, err, &report)
+	if err != nil {
 		// we end up here when listeners are not shut down within given timeout
 		if sc.OnShutdownError != nil {
 			sc.OnShutdownError(err)
-			return
+			return report
 		}
 		logger.Error("failed to shut down server within given timeout", "error", err)
 	}
+	return report
 }
