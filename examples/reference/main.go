@@ -107,17 +107,9 @@ func run(ctx context.Context, addr string, stdout, stderr io.Writer) int {
 }
 
 // exitStatus maps how Start ended to the exit status. Start returns nil after a forced stop too, so the report
-// decides: only a stop that was asked for and not forced is a drained one.
+// decides: only a stop that was asked for and not forced is a drained one. StopReport.ExitCode holds the mapping.
 func exitStatus(err error, stop server.StopReport) int {
-	switch {
-	case err != nil:
-		return exitFailed
-	case stop.Forced:
-		return exitForced
-	case !stop.Requested:
-		return exitFailed
-	}
-	return exitDrained
+	return stop.ExitCode(err)
 }
 
 // newService returns the service's handler: the routes behind the Host guard.
