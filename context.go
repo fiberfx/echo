@@ -20,6 +20,8 @@ import (
 	"strings"
 	"sync"
 	"unsafe"
+
+	"github.com/fiberfx/mx-echo/v6/reqid"
 )
 
 // stringToBytes returns a []byte view over s without copying, avoiding the allocation+copy of []byte(s)
@@ -89,6 +91,9 @@ type Context struct {
 
 	path string
 	lock sync.RWMutex
+
+	// requestID is the request's name when Config.Observer is set, else the zero ID.
+	requestID reqid.ID
 }
 
 // NewContext returns a new Context instance.
@@ -152,6 +157,7 @@ func (c *Context) Reset(r *http.Request, w http.ResponseWriter) {
 	c.handler = nil
 	c.dsw = delayedStatusWriter{}
 	c.path = ""
+	c.requestID = reqid.ID{}
 	// NOTE: empty by setting length to 0. PathValues has to have capacity of c.echo.contextPathParamAllocSize at all times
 	*c.pathValues = (*c.pathValues)[:0]
 }

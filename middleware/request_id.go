@@ -27,6 +27,9 @@ type RequestIDConfig struct {
 // RequestID returns a middleware that reads RequestIDConfig.TargetHeader (`X-Request-Id`) header value or when
 // the header value is empty, generates that value and sets request ID to response
 // as RequestIDConfig.TargetHeader (`X-Request-Id`) value.
+//
+// When echo.Config.Observer names requests, the request's name (echo.Context.RequestID) is the request ID: the
+// header value of the request is ignored and the Generator is not called.
 func RequestID() echo.MiddlewareFunc {
 	return RequestIDWithConfig(RequestIDConfig{})
 }
@@ -59,7 +62,9 @@ func (config RequestIDConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 			req := c.Request()
 			res := c.Response()
 			rid := req.Header.Get(config.TargetHeader)
-			if rid == "" {
+			if id := c.RequestID(); !id.IsZero() {
+				rid = id.String() // the request is named (echo.Config.Observer): one id, never the client's
+			} else if rid == "" {
 				rid = config.Generator()
 			}
 			res.Header().Set(config.TargetHeader, rid)

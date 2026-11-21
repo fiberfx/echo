@@ -156,6 +156,7 @@ type RequestLoggerConfig struct {
 	// LogRoutePath instructs logger to extract route path part to which request was matched to (i.e. `/user/:id`)
 	LogRoutePath bool
 	// LogRequestID instructs logger to extract request ID from request `X-Request-Id` header or response if request did not have value.
+	// When echo.Config.Observer names requests, the request ID is the request's name (echo.Context.RequestID).
 	LogRequestID bool
 	// LogReferer instructs logger to extract request referer values.
 	LogReferer bool
@@ -314,11 +315,15 @@ func (config RequestLoggerConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 				v.RoutePath = c.Path()
 			}
 			if config.LogRequestID {
-				id := req.Header.Get(echo.HeaderXRequestID)
-				if id == "" {
-					id = res.Header().Get(echo.HeaderXRequestID)
+				if name := c.RequestID(); !name.IsZero() {
+					v.RequestID = name.String() // the request is named (echo.Config.Observer)
+				} else {
+					id := req.Header.Get(echo.HeaderXRequestID)
+					if id == "" {
+						id = res.Header().Get(echo.HeaderXRequestID)
+					}
+					v.RequestID = id
 				}
-				v.RequestID = id
 			}
 			if config.LogReferer {
 				v.Referer = req.Referer()

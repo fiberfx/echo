@@ -61,6 +61,7 @@ import (
 	"sync/atomic"
 	"syscall"
 
+	"github.com/fiberfx/mx-echo/v6/observe"
 	"github.com/fiberfx/mx-echo/v6/outcome"
 )
 
@@ -119,6 +120,9 @@ type Echo struct {
 	noGroupAutoRegisterRoutes bool
 
 	enablePathUnescapingStaticFiles bool
+
+	// observer is Config.Observer when it has a Sink, else nil. serveHTTP checks it once per request.
+	observer *observe.Observer
 }
 
 // JSONSerializer is the interface that encodes and decodes JSON to and from interfaces.
@@ -351,6 +355,16 @@ type Config struct {
 	// Note: if you decide not to register 404 routes automatically, make sure to check if all your middlewares are executed
 	// as expected. For example - CORS middleware.
 	NoGroupAutoRegister404Routes bool
+
+	// Observer names every request before the first middleware and receives one observation after the error
+	// handler. The zero value, and an Observer with no Sink, leave the request path as v6.1.0.
+	//
+	// With an Observer set, a route registered through Echo or a Group with an empty Name gets the name
+	// Method + ":" + Path, which is the name Routes already reports for it, and the observation reports a matched
+	// route by that name. A route added through Router() directly is reported by the name it has, "none" when it
+	// has none. A Mint that returns the zero ID leaves that request unnamed: Context.RequestID is the zero ID
+	// and the observation writes "none".
+	Observer observe.Observer
 }
 
 // NewWithConfig creates an instance of Echo with given configuration.
@@ -395,6 +409,7 @@ func NewWithConfig(config Config) *Echo {
 	e.enablePathUnescapingStaticFiles = config.EnablePathUnescapingStaticFiles
 
 	e.noGroupAutoRegisterRoutes = config.NoGroupAutoRegister404Routes
+	e.observer = newObserver(config.Observer)
 
 	return e
 }
@@ -774,6 +789,11 @@ func (e *Echo) add(route Route) (RouteInfo, error) {
 			return RouteInfo{}, err
 		}
 	}
+	if e.observer != nil && route.Name == "" {
+		// The observation reports a matched route by its name. This is the name Route.ToRouteInfo gives an
+		// unnamed route; set here, the router keeps it where the request path can read it without building it.
+		route.Name = route.Method + ":" + route.Path
+	}
 
 	ri, err := e.router.Add(route)
 	if err != nil {
@@ -862,6 +882,11 @@ func (e *Echo) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	defer e.contextPool.Put(c)
 
 	c.Reset(r, w)
+
+	if e.observer != nil {
+		e.serveObserved(c, r)
+		return
+	}
 
 	// The global (e.chain) and pre-middleware (e.preChain) chains are compiled once in buildRouterChains and
 	// reused here, so no middleware closures are allocated per request.
