@@ -26,7 +26,10 @@ const (
 	w3cHeader   = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
 )
 
-var errBoom = errors.New("boom")
+var (
+	errBoom = errors.New("boom")
+	errGone = errors.New("write: broken pipe")
+)
 
 // sink keeps every observation it is given.
 type sink struct{ seen []observe.Observation }
@@ -82,6 +85,9 @@ func routes() *http.ServeMux {
 	})
 	mux.HandleFunc("GET /boom", func(http.ResponseWriter, *http.Request) { panic(errBoom) })
 	mux.HandleFunc("/tree/{id}/", func(http.ResponseWriter, *http.Request) {})
+	mux.HandleFunc("GET /moved", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/quiet", http.StatusTemporaryRedirect)
+	})
 	return mux
 }
 
@@ -173,6 +179,10 @@ func TestWrap(t *testing.T) {
 		{"an early hint, then the answer", http.MethodGet, "/early", "GET /early", http.StatusCreated, true, outcome.OK},
 		{"a handler's refusal", http.MethodGet, "/refused", "GET /refused", http.StatusConflict, true, outcome.BusinessRefusal},
 		{"a handler's failure", http.MethodGet, "/failed", "GET /failed", http.StatusBadGateway, true, outcome.WorkerFailure},
+		// The mux's own redirects, against the redirect of a registered handler, which is routed.
+		{"the mux's trailing-slash redirect", http.MethodGet, "/tree/42", "", http.StatusTemporaryRedirect, true, outcome.OK},
+		{"the mux's cleaned-path redirect", http.MethodGet, "//quiet", "", http.StatusTemporaryRedirect, true, outcome.OK},
+		{"a handler's own redirect", http.MethodGet, "/moved", "GET /moved", http.StatusTemporaryRedirect, true, outcome.OK},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -299,32 +309,100 @@ func TestWrap(t *testing.T) {
 		}
 	})
 
-	// The one value of r.Pattern that is not a registered pattern (net/http/server.go, findHandler, at Go
-	// 1.27.4): a CONNECT request redirected to a trailing slash carries the redirect's concrete path.
-	t.Run("a redirected CONNECT reports no pattern", func(t *testing.T) {
-		var s sink
-		mux := routes()
-		var reported string
-		spy := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			mux.ServeHTTP(w, r)
-			reported = r.Pattern
+	// The mux reports a pattern for its own redirects, though no registered handler answers them (net/http/server.go,
+	// findHandler, at Go 1.27.4): a CONNECT request redirected to a trailing slash carries the redirect's concrete
+	// path, any other method the pattern the redirect's target matches. The edge reports none for each.
+	for _, c := range []struct {
+		method, target, reported string
+	}{
+		{http.MethodConnect, "/tree/42", "/tree/42/"},
+		{http.MethodGet, "/tree/42", "/tree/{id}/"},
+		{http.MethodGet, "//quiet", "GET /quiet"},
+		{http.MethodGet, "/a/../quiet", "GET /quiet"},
+	} {
+		t.Run("the mux's redirect of "+c.method+" "+c.target+" reports no pattern", func(t *testing.T) {
+			var s sink
+			mux := routes()
+			var reported string
+			spy := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				mux.ServeHTTP(w, r)
+				reported = r.Pattern
+			})
+			h := stdhttp.Wrap(spy, observe.Observer{Sink: &s, Mint: counter()})
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, httptest.NewRequest(c.method, c.target, nil))
+			if reported != c.reported {
+				t.Fatalf("the mux reported the pattern %q for its redirect, not %q: its rule changed, and "+
+					"registeredPattern and this case need another look", reported, c.reported)
+			}
+			if rec.Code != http.StatusTemporaryRedirect {
+				t.Errorf("status %d, want the mux's redirect", rec.Code)
+			}
+			want := expect(1, c.method)
+			want.Kind, want.Status, want.Committed = outcome.OK, rec.Code, true
+			if err := check(only(t, &s), want, c.target); err != nil {
+				t.Error(err)
+			}
 		})
-		h := stdhttp.Wrap(spy, observe.Observer{Sink: &s, Mint: counter()})
-		rec := httptest.NewRecorder()
-		h.ServeHTTP(rec, httptest.NewRequest(http.MethodConnect, "/tree/42", nil))
-		if reported != "/tree/42/" {
-			t.Fatalf("the mux reported the pattern %q for a redirected CONNECT, not the concrete path /tree/42/: "+
-				"its rule changed, and the guard in registeredPattern and this case need another look", reported)
-		}
-		want := expect(1, http.MethodConnect)
-		want.Kind, want.Status, want.Committed = outcome.OK, rec.Code, true
-		if err := check(only(t, &s), want, "/tree/42/"); err != nil {
-			t.Error(err)
-		}
-		if rec.Code < 300 || rec.Code > 399 {
-			t.Errorf("status %d, want the mux's redirect", rec.Code)
-		}
-	})
+	}
+}
+
+func TestWrapFlush(t *testing.T) {
+	cases := []struct {
+		name      string
+		below     http.ResponseWriter
+		want      error // nil for a flush that worked
+		committed bool
+	}{
+		{"a writer that flushes", httptest.NewRecorder(), nil, true},
+		{"a writer that cannot flush", &plainWriter{header: http.Header{}}, http.ErrNotSupported, false},
+		{"a client that has gone", &goneWriter{ResponseRecorder: httptest.NewRecorder()}, errGone, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var s sink
+			var flushed error
+			mux := http.NewServeMux()
+			mux.HandleFunc("GET /stream", func(w http.ResponseWriter, _ *http.Request) {
+				flushed = http.NewResponseController(w).Flush()
+			})
+			h := stdhttp.Wrap(mux, observe.Observer{Sink: &s, Mint: counter()})
+			h.ServeHTTP(c.below, httptest.NewRequest(http.MethodGet, "/stream", nil))
+			if err := checkFlush(flushed, c.want); err != nil {
+				t.Error(err)
+			}
+			want := routed(expect(1, http.MethodGet), "GET /stream")
+			want.Kind, want.Committed = outcome.OK, c.committed
+			if err := check(only(t, &s), want, "/stream"); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+}
+
+func TestWrapFlushViolation(t *testing.T) {
+	// The success the recorder reported before it had FlushError, for writers that cannot flush.
+	if checkFlush(nil, http.ErrNotSupported) == nil {
+		t.Error("a flush that reported success passed for a writer that cannot flush")
+	}
+	if checkFlush(nil, errGone) == nil {
+		t.Error("a flush that reported success passed for a client that has gone")
+	}
+	if checkFlush(errGone, nil) == nil {
+		t.Error("a flush that failed passed for a writer that flushes")
+	}
+}
+
+// checkFlush returns an error unless the handler's flush returned nil when want is nil, and an error that is
+// want otherwise.
+func checkFlush(got, want error) error {
+	if want == nil && got != nil {
+		return fmt.Errorf("the flush returned %v, want nil", got)
+	}
+	if want != nil && !errors.Is(got, want) {
+		return fmt.Errorf("the flush returned %v, want %v", got, want)
+	}
+	return nil
 }
 
 func TestWrapViolation(t *testing.T) {
@@ -366,3 +444,17 @@ func (w *deadlineWriter) SetWriteDeadline(time.Time) error {
 	w.deadlines++
 	return nil
 }
+
+// plainWriter is a writer with none of the optional methods: it cannot flush, and has no Unwrap.
+type plainWriter struct{ header http.Header }
+
+func (w *plainWriter) Header() http.Header         { return w.header }
+func (w *plainWriter) Write(b []byte) (int, error) { return len(b), nil }
+func (w *plainWriter) WriteHeader(int)             {}
+
+// goneWriter is a writer whose flush fails, as the server's does when the client has gone.
+type goneWriter struct {
+	*httptest.ResponseRecorder
+}
+
+func (w *goneWriter) FlushError() error { return errGone }

@@ -10,7 +10,8 @@
 // are lost at exit; and its tests set the variables fv's code writes, they do not run it under a real fv.
 //
 // Standard output holds the bound address as the first line, then the server's own log. Standard error holds
-// the observations and nothing else.
+// the observations and nothing else, once the service runs; a command line that does not parse, or -h, prints
+// the usage there instead, and exits 1.
 package main
 
 import (
@@ -51,9 +52,20 @@ const grace = 3 * time.Second
 const maxValue = 1 << 20
 
 func main() {
-	addr := flag.String("addr", "127.0.0.1:8080", "the address to listen on")
-	flag.Parse()
-	os.Exit(serve(*addr))
+	os.Exit(command(os.Args[1:], os.Stderr, serve))
+}
+
+// command reads the command line and returns the status of serve on its address. A command line that does not
+// parse, and -h, print the usage to stderr and return exitFailed without serving: no stop was asked for, and
+// nothing drained.
+func command(args []string, stderr io.Writer, serve func(addr string) int) int {
+	flags := flag.NewFlagSet("reference", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	addr := flags.String("addr", "127.0.0.1:8080", "the address to listen on")
+	if err := flags.Parse(args); err != nil {
+		return exitFailed
+	}
+	return serve(*addr)
 }
 
 // serve runs the service until SIGTERM or an interrupt and returns the exit status.

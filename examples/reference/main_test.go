@@ -518,3 +518,57 @@ func TestExitStatusViolation(t *testing.T) {
 		t.Error("exit 1 after a drained stop passed the check")
 	}
 }
+
+func TestCommand(t *testing.T) {
+	for _, args := range [][]string{{"-h"}, {"-help"}, {"-nope"}, {"-addr"}} {
+		var stderr bytes.Buffer
+		status := command(args, &stderr, func(addr string) int {
+			t.Errorf("%q served on %q", args, addr)
+			return exitDrained
+		})
+		if err := checkCommand(status, exitFailed); err != nil {
+			t.Errorf("%q: %v", args, err)
+		}
+		if !strings.Contains(stderr.String(), "-addr") {
+			t.Errorf("%q printed %q, want the usage", args, stderr.String())
+		}
+	}
+	// A command line that parses hands its address to serve, and returns serve's status.
+	for _, c := range []struct {
+		args []string
+		addr string
+	}{
+		{nil, "127.0.0.1:8080"},
+		{[]string{"-addr", "127.0.0.1:0"}, "127.0.0.1:0"},
+	} {
+		var served string
+		status := command(c.args, io.Discard, func(addr string) int {
+			served = addr
+			return exitForced
+		})
+		if err := checkCommand(status, exitForced); err != nil {
+			t.Errorf("%q: %v", c.args, err)
+		}
+		if served != c.addr {
+			t.Errorf("%q served on %q, want %q", c.args, served, c.addr)
+		}
+	}
+}
+
+func TestCommandViolation(t *testing.T) {
+	// What flag.ExitOnError gave: 0 for -h, as after a drained stop, and 2 for a bad flag, as after a forced one.
+	if checkCommand(exitDrained, exitFailed) == nil {
+		t.Error("exit 0 for -h passed the check")
+	}
+	if checkCommand(exitForced, exitFailed) == nil {
+		t.Error("exit 2 for a bad flag passed the check")
+	}
+}
+
+// checkCommand returns an error unless command's status is want.
+func checkCommand(status, want int) error {
+	if status != want {
+		return fmt.Errorf("exit %d, want %d", status, want)
+	}
+	return nil
+}
