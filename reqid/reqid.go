@@ -15,7 +15,8 @@ type ID struct{ b [10]byte }
 
 // New builds an ID from a time and a random number; it reads neither a clock nor a random source.
 func New(unixMilli int64, random uint32) ID {
-	// The low 48 bits of unixMilli are kept: they hold every millisecond until the year 10889.
+	// The low 48 bits of unixMilli are kept: they hold every millisecond from 1970 to the year 10889.
+	// A time outside that range does not come back from UnixMilli.
 	var id ID
 	id.b[0] = byte(unixMilli >> 40)
 	id.b[1] = byte(unixMilli >> 32)
@@ -44,7 +45,8 @@ func (id ID) IsZero() bool {
 	return id == ID{}
 }
 
-// UnixMilli returns the time New was given.
+// UnixMilli returns the low 48 bits of the time New was given: the time itself for every millisecond from 1970
+// to the year 10889.
 func (id ID) UnixMilli() int64 {
 	return int64(id.b[0])<<40 | int64(id.b[1])<<32 | int64(id.b[2])<<24 | int64(id.b[3])<<16 | int64(id.b[4])<<8 | int64(id.b[5])
 }
@@ -58,6 +60,12 @@ func (id ID) String() string {
 // AppendText appends String's text without allocating; the error is always nil.
 func (id ID) AppendText(b []byte) ([]byte, error) {
 	return appendHex(b, id.b[:]), nil
+}
+
+// MarshalText returns String's text, so that encoding/json and log/slog's JSON handler write the name and not {};
+// the error is always nil.
+func (id ID) MarshalText() ([]byte, error) {
+	return appendHex(make([]byte, 0, 2*len(id.b)), id.b[:]), nil
 }
 
 // appendHex appends src to dst as lowercase hex digits.

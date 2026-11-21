@@ -5,6 +5,7 @@ package reqid_test
 
 import (
 	"encoding"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -13,6 +14,8 @@ import (
 )
 
 var _ encoding.TextAppender = reqid.Link{}
+
+var _ encoding.TextMarshaler = reqid.Link{}
 
 var _ fmt.Stringer = reqid.Link{}
 
@@ -195,5 +198,60 @@ func TestParseTraceparentAllocs(t *testing.T) {
 	}
 	if !sinkOK || sinkLink.String() != w3cExample {
 		t.Errorf("ParseTraceparent gave (%v, %t)", sinkLink, sinkOK)
+	}
+}
+
+func TestLinkMarshalText(t *testing.T) {
+	l, ok := reqid.ParseTraceparent(w3cExample)
+	if !ok {
+		t.Fatal("the W3C example was refused")
+	}
+	for _, l := range []reqid.Link{l, {}} {
+		got, err := l.MarshalText()
+		if err != nil {
+			t.Errorf("%v: MarshalText returned the error %v", l, err)
+		}
+		if string(got) != l.String() {
+			t.Errorf("%v: MarshalText = %q, want String's text", l, got)
+		}
+		if err := checkJSONText(l, l.String()); err != nil {
+			t.Error(err)
+		}
+	}
+	if err := checkJSONText(l, w3cExample); err != nil {
+		t.Error(err)
+	}
+	if err := checkJSONText(reqid.Link{}, "00-"+zeroTrace+"-"+zeroSpan+"-00"); err != nil {
+		t.Errorf("the zero Link: %v", err)
+	}
+
+	// A struct that holds both, as an observation does, is written with both texts.
+	pair := struct {
+		ID   reqid.ID
+		Link reqid.Link
+	}{reqid.New(0x0123456789ab, 0xdeadbeef), l}
+	got, err := json.Marshal(pair)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `{"ID":"0123456789abdeadbeef","Link":"` + w3cExample + `"}`; string(got) != want {
+		t.Errorf("json.Marshal of a struct with an ID and a Link = %s, want %s", got, want)
+	}
+}
+
+// bareLink has the shape of a Link and no MarshalText: what encoding/json sees without the method.
+type bareLink struct {
+	trace [16]byte
+	span  [8]byte
+	flags byte
+}
+
+func TestLinkMarshalTextViolation(t *testing.T) {
+	err := checkJSONText(bareLink{trace: [16]byte{1}, span: [8]byte{1}, flags: 1}, w3cExample)
+	if err == nil {
+		t.Fatal("a value with no MarshalText passed the check")
+	}
+	if !strings.Contains(err.Error(), "= {},") {
+		t.Errorf("a value with no MarshalText was caught, but not as {}: %v", err)
 	}
 }

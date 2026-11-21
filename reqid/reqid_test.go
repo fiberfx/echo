@@ -4,8 +4,11 @@
 package reqid_test
 
 import (
+	"bytes"
 	"encoding"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -13,6 +16,8 @@ import (
 )
 
 var _ encoding.TextAppender = reqid.ID{}
+
+var _ encoding.TextMarshaler = reqid.ID{}
 
 var _ fmt.Stringer = reqid.ID{}
 
@@ -290,5 +295,62 @@ func TestAppendTextAllocsViolation(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("AppendText onto a nil slice, kept, allocated nothing by the meter")
+	}
+}
+
+// checkJSONText reports an error unless encoding/json and log/slog's JSON handler write v as the string want.
+func checkJSONText(v any, want string) error {
+	quoted := `"` + want + `"`
+	got, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Errorf("json.Marshal(%T) returned the error %v", v, err)
+	}
+	if string(got) != quoted {
+		return fmt.Errorf("json.Marshal(%T) = %s, want %s", v, got, quoted)
+	}
+	var buf bytes.Buffer
+	slog.New(slog.NewJSONHandler(&buf, nil)).Info("named", "v", v)
+	if !strings.Contains(buf.String(), `"v":`+quoted) {
+		return fmt.Errorf("slog's JSON handler wrote %T as %s, want \"v\":%s in it", v, strings.TrimSpace(buf.String()), quoted)
+	}
+	return nil
+}
+
+func TestMarshalText(t *testing.T) {
+	ids := []reqid.ID{
+		reqid.New(0x0123456789ab, 0xdeadbeef),
+		reqid.New(1795000000000, 0x00c0ffee),
+		{},
+	}
+	for _, id := range ids {
+		got, err := id.MarshalText()
+		if err != nil {
+			t.Errorf("%v: MarshalText returned the error %v", id, err)
+		}
+		if string(got) != id.String() {
+			t.Errorf("%v: MarshalText = %q, want String's text", id, got)
+		}
+		if err := checkJSONText(id, id.String()); err != nil {
+			t.Error(err)
+		}
+	}
+	if err := checkJSONText(reqid.ID{}, "00000000000000000000"); err != nil {
+		t.Errorf("the zero ID: %v", err)
+	}
+}
+
+// bareID has the shape of an ID and no MarshalText: what encoding/json sees without the method.
+type bareID struct{ b [10]byte }
+
+func TestMarshalTextViolation(t *testing.T) {
+	err := checkJSONText(bareID{b: [10]byte{1}}, "01000000000000000000")
+	if err == nil {
+		t.Fatal("a value with no MarshalText passed the check")
+	}
+	if !strings.Contains(err.Error(), "= {},") {
+		t.Errorf("a value with no MarshalText was caught, but not as {}: %v", err)
+	}
+	if checkJSONText(reqid.New(0x0123456789ab, 0xdeadbeef), "0123456789ABDEADBEEF") == nil {
+		t.Fatal("an uppercase text passed the check")
 	}
 }

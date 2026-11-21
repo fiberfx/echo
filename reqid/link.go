@@ -68,3 +68,9 @@ func (l Link) AppendText(b []byte) ([]byte, error) {
 	b = append(b, '-', hexDigits[l.flags>>4], hexDigits[l.flags&0x0f])
 	return b, nil
 }
+
+// MarshalText returns String's text, so that encoding/json and log/slog's JSON handler write the link and not {};
+// the error is always nil.
+func (l Link) MarshalText() ([]byte, error) {
+	return l.AppendText(make([]byte, 0, traceparentSize))
+}
