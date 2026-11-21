@@ -66,8 +66,11 @@ type StartConfig struct {
 	// OnStop is called once, after the listener closed and the stop ended, before Start returns.
 	// Setting it also makes Start close the remaining connections when the grace expires; with it nil, Start
 	// behaves as at v6.1.0 (it returns while those requests still run).
+	// It is not called when Start fails before serving (a listen, certificate or BeforeServeFunc error). When
+	// Serve ends on its own it is called with Requested false, and Start returns Serve's error.
 	OnStop func(StopReport)
-	// Owner is cancelled when the stop begins and waited for within GracefulTimeout.
+	// Owner is cancelled when the stop begins and waited for within GracefulTimeout. With a negative
+	// GracefulTimeout it is cancelled when Serve returns and not waited for.
 	Owner *Owner
 
 	// BeforeServeFunc is callback that is called just before server starts to serve HTTP request.

@@ -10,15 +10,25 @@ import (
 	"sync"
 )
 
-// StopReport says how a started server stopped.
+// StopReport says how a started server stopped. A drained stop is Requested and not Forced.
+//
+// The report covers the connections net/http tracks. A hijacked connection (a WebSocket) is neither waited for
+// nor closed and does not count: give its work to an Owner. Forced can be true with no request running: a
+// connection that has sent nothing yet is not idle, and a request that ends as the grace does may be seen late.
+// With a negative GracefulTimeout no grace runs: Forced then reports owned work only, and connections are
+// neither waited for nor closed.
 type StopReport struct {
 	Requested bool // the start context ended and the graceful stop ran
-	Forced    bool // the grace expired with a request or owned work still running; the connections were closed
+	Forced    bool // the grace expired before every connection was idle and all owned work had returned; the connections were closed
 	Abandoned int  // owned functions still running when the grace expired
 }
 
 // Owner owns work that outlives a request. The zero Owner is ready. A server given it cancels its context when
 // the stop begins and waits for its functions within GracefulTimeout.
+//
+// The context ends when the stop begins, before the listener closes and while requests in flight still drain:
+// a function those requests wait on must not return on its context alone. With a negative GracefulTimeout the
+// context ends when Serve returns and nothing is waited for.
 //
 // An Owner is stopped once and stays stopped: it serves one start, and when two servers share it the first stop
 // ends it for both. A start that fails before serving (a listen error, a BeforeServeFunc error) does not stop it.

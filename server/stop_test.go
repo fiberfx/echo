@@ -9,6 +9,9 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"runtime"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -471,6 +474,202 @@ func TestOwnerViolation(t *testing.T) {
 		{"abandoned work reported as forced, uncounted", checkOwner(nil, []server.StopReport{{Requested: true, Forced: true}}, abandoned, 0, 0, false)},
 		{"work accepted after the stop", checkOwner(nil, []server.StopReport{drained}, drained, 2, 2, true)},
 		{"no report", checkOwner(nil, nil, drained, 2, 2, false)},
+	})
+}
+
+func TestOwnerGoDuringStop(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	owner := &server.Owner{}
+	var accepted, ended, refused atomic.Int64
+	stopBegan := make(chan struct{})
+	var once sync.Once
+	work := func(ctx context.Context) {
+		<-ctx.Done()
+		once.Do(func() { close(stopBegan) })
+		ended.Add(1)
+	}
+	reports := make(chan server.StopReport, 4)
+	s := start(t, ctx, server.StartConfig{
+		GracefulTimeout: wait,
+		Owner:           owner,
+		OnStop:          func(r server.StopReport) { reports <- r },
+	}, http.NotFoundHandler())
+
+	// Each caller hands work over in a burst, and the stop is asked for once every caller is under way, so it
+	// begins beside their calls. A caller the stop has not reached by the end of its burst waits until an owned
+	// function has seen its context end, and calls once more: that call is refused whatever the schedule.
+	const callers, burst = 4, 200
+	var calling sync.WaitGroup
+	for range callers {
+		calling.Go(func() {
+			for range burst {
+				if !owner.Go(work) {
+					refused.Add(1)
+					return
+				}
+				if accepted.Add(1) == callers {
+					cancel()
+				}
+				runtime.Gosched()
+			}
+			select {
+			case <-stopBegan:
+			case <-time.After(wait):
+				return
+			}
+			if owner.Go(work) {
+				accepted.Add(1)
+				return
+			}
+			refused.Add(1)
+		})
+	}
+	startErr := recv(t, s.done, "Start to return")
+	returned := int(ended.Load()) // read before the callers are waited for: Start must not return ahead of owned work
+	calling.Wait()
+	late := refused.Load() != callers || owner.Go(work)
+
+	if err := checkOwner(startErr, drain(reports), server.StopReport{Requested: true}, returned, int(accepted.Load()), late); err != nil {
+		t.Fatalf("%v (%d of %d callers were refused)", err, refused.Load(), callers)
+	}
+}
+
+// errBroken is what a brokenListener's Accept returns.
+var errBroken = errors.New("the listener broke")
+
+// brokenListener is a bound listener whose Accept fails once fail is called: the way Serve ends on its own,
+// with no stop requested.
+type brokenListener struct {
+	net.Listener
+	broken chan struct{}
+	once   sync.Once
+}
+
+func listenBroken(t *testing.T) *brokenListener {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	l := &brokenListener{Listener: ln, broken: make(chan struct{})}
+	t.Cleanup(l.fail)
+	return l
+}
+
+func (l *brokenListener) Accept() (net.Conn, error) {
+	<-l.broken
+	return nil, errBroken
+}
+
+func (l *brokenListener) fail() { l.once.Do(func() { close(l.broken) }) }
+
+// checkServeEnded holds what a report says when Serve ended on its own: Start returns Serve's error, OnStop is
+// called once and never says the stop was requested, no owned function that heeds its context is left alive,
+// and the owner takes no more work.
+func checkServeEnded(startErr error, reports []server.StopReport, want server.StopReport, alive int, late bool) error {
+	if !errors.Is(startErr, errBroken) {
+		return fmt.Errorf("Start returned %v, want the listener's error", startErr)
+	}
+	if len(reports) != 1 {
+		return fmt.Errorf("OnStop was called %d times when Serve ended on its own, want once", len(reports))
+	}
+	if reports[0].Requested {
+		return fmt.Errorf("a stop nobody requested was reported as requested: %+v", reports[0])
+	}
+	if reports[0] != want {
+		return fmt.Errorf("the stop was reported as %+v, want %+v", reports[0], want)
+	}
+	if alive != 0 {
+		return fmt.Errorf("%d owned functions that heed their context were alive when Start returned", alive)
+	}
+	if late {
+		return errors.New("Go accepted work after Serve ended")
+	}
+	return nil
+}
+
+func TestStopServeEnded(t *testing.T) {
+	t.Run("within a grace the owner is cancelled and waited for", func(t *testing.T) {
+		l := listenBroken(t)
+		owner := &server.Owner{}
+		ended := make(chan struct{}, 1)
+		giveUp := make(chan struct{})
+		defer close(giveUp)
+		if !owner.Go(func(ctx context.Context) {
+			select {
+			case <-ctx.Done():
+				ended <- struct{}{}
+			case <-giveUp:
+			}
+		}) {
+			t.Fatal("Go refused work before the server started")
+		}
+		reports := make(chan server.StopReport, 4)
+		s := start(t, t.Context(), server.StartConfig{
+			Listener:        l,
+			GracefulTimeout: wait,
+			Owner:           owner,
+			OnStop:          func(r server.StopReport) { reports <- r },
+		}, http.NotFoundHandler())
+
+		l.fail() // the start context is still live: nobody asked for this stop
+		startErr := recv(t, s.done, "Start to return")
+		alive := 1 - len(ended)
+		late := owner.Go(func(context.Context) {})
+
+		if err := checkServeEnded(startErr, drain(reports), server.StopReport{}, alive, late); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("with a negative grace the owner is cancelled and not waited for", func(t *testing.T) {
+		l := listenBroken(t)
+		owner := &server.Owner{}
+		release := make(chan struct{})
+		finished := make(chan struct{})
+		if !owner.Go(func(context.Context) {
+			<-release
+			close(finished)
+		}) {
+			t.Fatal("Go refused work before the server started")
+		}
+		defer func() {
+			close(release)
+			recv(t, finished, "the abandoned function to return")
+		}()
+		reports := make(chan server.StopReport, 4)
+		s := start(t, t.Context(), server.StartConfig{
+			Listener:        l,
+			GracefulTimeout: -1,
+			Owner:           owner,
+			OnStop:          func(r server.StopReport) { reports <- r },
+		}, http.NotFoundHandler())
+
+		l.fail()
+		startErr := recv(t, s.done, "Start to return")
+		late := owner.Go(func(context.Context) {})
+
+		want := server.StopReport{Forced: true, Abandoned: 1}
+		if err := checkServeEnded(startErr, drain(reports), want, 0, late); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+func TestStopServeEndedViolation(t *testing.T) {
+	ended := []server.StopReport{{}}
+	if err := checkServeEnded(errBroken, ended, server.StopReport{}, 0, false); err != nil {
+		t.Fatalf("the valid case is refused: %v", err)
+	}
+	requested := server.StopReport{Requested: true}
+	refuseAll(t, []violation{
+		{"a stop nobody requested reported as requested", checkServeEnded(errBroken, []server.StopReport{requested}, requested, 0, false)},
+		{"the error of Serve swallowed", checkServeEnded(nil, ended, server.StopReport{}, 0, false)},
+		{"no report when Serve ended on its own", checkServeEnded(errBroken, nil, server.StopReport{}, 0, false)},
+		{"owned work left running and not counted", checkServeEnded(errBroken, ended, server.StopReport{Forced: true, Abandoned: 1}, 0, false)},
+		{"owned work alive after Start returned", checkServeEnded(errBroken, ended, server.StopReport{}, 1, false)},
+		{"work accepted after Serve ended", checkServeEnded(errBroken, ended, server.StopReport{}, 0, true)},
 	})
 }
 
