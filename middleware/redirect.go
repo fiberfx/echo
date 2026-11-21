@@ -6,9 +6,9 @@ package middleware
 import (
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/fiberfx/mx-echo/v6"
+	"github.com/fiberfx/mx-echo/v6/httprule"
 )
 
 // RedirectConfig defines the config for Redirect middleware.
@@ -28,22 +28,20 @@ type RedirectConfig struct {
 // 2) return the appropriate redirect url.
 type redirectLogic func(scheme, host, uri string) (ok bool, url string)
 
-const www = "www."
-
 // RedirectHTTPSConfig is the HTTPS Redirect middleware config.
-var RedirectHTTPSConfig = RedirectConfig{redirect: redirectHTTPS}
+var RedirectHTTPSConfig = RedirectConfig{redirect: httprule.RedirectHTTPS}
 
 // RedirectHTTPSWWWConfig is the HTTPS WWW Redirect middleware config.
-var RedirectHTTPSWWWConfig = RedirectConfig{redirect: redirectHTTPSWWW}
+var RedirectHTTPSWWWConfig = RedirectConfig{redirect: httprule.RedirectHTTPSWWW}
 
 // RedirectNonHTTPSWWWConfig is the non HTTPS WWW Redirect middleware config.
-var RedirectNonHTTPSWWWConfig = RedirectConfig{redirect: redirectNonHTTPSWWW}
+var RedirectNonHTTPSWWWConfig = RedirectConfig{redirect: httprule.RedirectHTTPSNonWWW}
 
 // RedirectWWWConfig is the WWW Redirect middleware config.
-var RedirectWWWConfig = RedirectConfig{redirect: redirectWWW}
+var RedirectWWWConfig = RedirectConfig{redirect: httprule.RedirectWWW}
 
 // RedirectNonWWWConfig is the non WWW Redirect middleware config.
-var RedirectNonWWWConfig = RedirectConfig{redirect: redirectNonWWW}
+var RedirectNonWWWConfig = RedirectConfig{redirect: httprule.RedirectNonWWW}
 
 // HTTPSRedirect redirects http requests to https.
 // For example, http://labstack.com will be redirect to https://labstack.com.
@@ -55,7 +53,7 @@ func HTTPSRedirect() echo.MiddlewareFunc {
 
 // HTTPSRedirectWithConfig returns a HTTPS redirect middleware with config or panics on invalid configuration.
 func HTTPSRedirectWithConfig(config RedirectConfig) echo.MiddlewareFunc {
-	config.redirect = redirectHTTPS
+	config.redirect = httprule.RedirectHTTPS
 	return toMiddlewareOrPanic(config)
 }
 
@@ -69,7 +67,7 @@ func HTTPSWWWRedirect() echo.MiddlewareFunc {
 
 // HTTPSWWWRedirectWithConfig returns a HTTPS WWW redirect middleware with config or panics on invalid configuration.
 func HTTPSWWWRedirectWithConfig(config RedirectConfig) echo.MiddlewareFunc {
-	config.redirect = redirectHTTPSWWW
+	config.redirect = httprule.RedirectHTTPSWWW
 	return toMiddlewareOrPanic(config)
 }
 
@@ -83,7 +81,7 @@ func HTTPSNonWWWRedirect() echo.MiddlewareFunc {
 
 // HTTPSNonWWWRedirectWithConfig returns a HTTPS Non-WWW redirect middleware with config or panics on invalid configuration.
 func HTTPSNonWWWRedirectWithConfig(config RedirectConfig) echo.MiddlewareFunc {
-	config.redirect = redirectNonHTTPSWWW
+	config.redirect = httprule.RedirectHTTPSNonWWW
 	return toMiddlewareOrPanic(config)
 }
 
@@ -97,7 +95,7 @@ func WWWRedirect() echo.MiddlewareFunc {
 
 // WWWRedirectWithConfig returns a WWW redirect middleware with config or panics on invalid configuration.
 func WWWRedirectWithConfig(config RedirectConfig) echo.MiddlewareFunc {
-	config.redirect = redirectWWW
+	config.redirect = httprule.RedirectWWW
 	return toMiddlewareOrPanic(config)
 }
 
@@ -111,7 +109,7 @@ func NonWWWRedirect() echo.MiddlewareFunc {
 
 // NonWWWRedirectWithConfig returns a Non-WWW redirect middleware with config or panics on invalid configuration.
 func NonWWWRedirectWithConfig(config RedirectConfig) echo.MiddlewareFunc {
-	config.redirect = redirectNonWWW
+	config.redirect = httprule.RedirectNonWWW
 	return toMiddlewareOrPanic(config)
 }
 
@@ -148,7 +146,7 @@ func (config RedirectConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 			if !ok {
 				return next(c)
 			}
-			if !isValidRedirectHost(host) {
+			if !httprule.ValidRedirectHost(host) {
 				return echo.ErrBadRequest
 			}
 			uri := req.RequestURI
@@ -157,69 +155,7 @@ func (config RedirectConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 			}
 			// The host already anchors this absolute URL, so preserve leading path
 			// slashes. Only control characters need escaping here.
-			return c.Redirect(config.Code, target+escapeControlChars(uri))
+			return c.Redirect(config.Code, target+httprule.EscapeControlChars(uri))
 		}
 	}, nil
-}
-
-func hasWWWPrefix(host string) bool {
-	return len(host) >= len(www) && strings.EqualFold(host[:len(www)], www)
-}
-
-func stripWWWPrefix(host string) string {
-	if hasWWWPrefix(host) {
-		return host[len(www):]
-	}
-	return host
-}
-
-// isValidRedirectHost checks the authority before it is used in a Location.
-// Check the stripped host too, as removing a bare www. would leave no hostname.
-func isValidRedirectHost(host string) bool {
-	host = stripWWWPrefix(host)
-	if host == "" || host[0] == ':' || host[0] == '.' {
-		return false
-	}
-	// net/http validates Host syntax. Reject percent escapes too, since a
-	// browser could interpret them as authority delimiters in Location.
-	return !strings.Contains(host, "%")
-}
-
-var redirectHTTPS = func(scheme, host, uri string) (bool, string) {
-	if scheme != "https" {
-		return true, "https://" + host + uri
-	}
-	return false, ""
-}
-
-var redirectHTTPSWWW = func(scheme, host, uri string) (bool, string) {
-	// Redirect if not HTTPS OR missing www prefix (needs either fix)
-	if scheme != "https" || !hasWWWPrefix(host) {
-		host = stripWWWPrefix(host) // Remove www if present to avoid duplication
-		return true, "https://www." + host + uri
-	}
-	return false, ""
-}
-
-var redirectNonHTTPSWWW = func(scheme, host, uri string) (ok bool, url string) {
-	// Redirect if not HTTPS OR has www prefix (needs either fix)
-	if scheme != "https" || hasWWWPrefix(host) {
-		host = stripWWWPrefix(host)
-		return true, "https://" + host + uri
-	}
-	return false, ""
-}
-
-var redirectWWW = func(scheme, host, uri string) (bool, string) {
-	if !hasWWWPrefix(host) {
-		return true, scheme + "://www." + host + uri
-	}
-	return false, ""
-}
-
-var redirectNonWWW = func(scheme, host, uri string) (bool, string) {
-	if hasWWWPrefix(host) {
-		return true, scheme + "://" + host[len(www):] + uri
-	}
-	return false, ""
 }

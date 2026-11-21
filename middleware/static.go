@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/fiberfx/mx-echo/v6"
+	"github.com/fiberfx/mx-echo/v6/httprule"
 )
 
 // StaticConfig defines the config for Static middleware.
@@ -235,14 +236,14 @@ func (config StaticConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 			unclean := hasUncleanPath(req)
 			if strings.HasSuffix(c.Path(), "*") { // When serving from a group, e.g. `/static*`.
 				p = c.Param("*")
-				unclean = unclean || hasUncleanWildcardPath(p, c.Path())
+				unclean = unclean || httprule.HasUncleanWildcardPath(p, c.Path())
 			}
 			if !unclean && config.EnablePathUnescaping {
 				p, err = url.PathUnescape(p)
 				if err != nil {
 					return err
 				}
-				unclean = hasUncleanWildcardPath(p, c.Path()) // unescaping can create dot or empty segments
+				unclean = httprule.HasUncleanWildcardPath(p, c.Path()) // unescaping can create dot or empty segments
 			}
 			// Security: We use path.Clean() (not filepath.Clean()) because:
 			// 1. HTTP URLs always use forward slashes, regardless of server OS
@@ -416,48 +417,12 @@ func format(b int64) string {
 	return fmt.Sprintf("%.2f%s", value, multiple)
 }
 
-// hasDotOrEmptySegment reports whether URL path p has a ".", ".." or empty segment, or a segment with a "." or ".."
-// part between backslashes (e.g. `..\x`). A single leading and a single trailing slash are allowed.
-// Keep in sync with the copy in echo.go.
-func hasDotOrEmptySegment(p string) bool {
-	if strings.HasPrefix(p, "//") {
-		return true
-	}
-	p = strings.TrimPrefix(p, "/")
-	p = strings.TrimSuffix(p, "/")
-	if p == "" {
-		return false
-	}
-	for segment := range strings.SplitSeq(p, "/") {
-		if segment == "" || segment == "." || segment == ".." {
-			return true
-		}
-		// A backslash is a literal character in fs.FS names, but a filesystem that wrongly treats it as a separator
-		// (for example one built on filepath.Join on Windows) would resolve `..\` outside its root.
-		if strings.Contains(segment, `\`) {
-			for part := range strings.SplitSeq(segment, `\`) {
-				if part == "." || part == ".." {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
 // hasUncleanPath checks both request path representations for ".", ".." or empty segments.
 // Router configuration and parameter unescaping can select either representation. Validating only RawPath would
 // miss an empty segment in URL.Path, allowing filesystem cleanup to resolve a path the router never matched.
 func hasUncleanPath(req *http.Request) bool {
-	if hasDotOrEmptySegment(req.URL.Path) {
+	if httprule.HasDotOrEmptySegment(req.URL.Path) {
 		return true
 	}
-	return req.URL.RawPath != "" && hasDotOrEmptySegment(req.URL.RawPath)
-}
-
-// hasUncleanWildcardPath accounts for the slash already consumed by a route ending in /*.
-// A leading slash in that wildcard is an empty segment, while a prefix such as /assets* may legitimately capture /file.
-// Keep in sync with the copy in echo.go.
-func hasUncleanWildcardPath(p, routePath string) bool {
-	return (strings.HasSuffix(routePath, "/*") && strings.HasPrefix(p, "/")) || hasDotOrEmptySegment(p)
+	return req.URL.RawPath != "" && httprule.HasDotOrEmptySegment(req.URL.RawPath)
 }

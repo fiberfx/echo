@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/fiberfx/mx-echo/v6"
+	"github.com/fiberfx/mx-echo/v6/httprule"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -340,7 +341,7 @@ func TestSanitizeURI(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.whenURI, func(t *testing.T) {
-			assert.Equal(t, tc.expect, sanitizeURI(tc.whenURI))
+			assert.Equal(t, tc.expect, httprule.SanitizeURI(tc.whenURI))
 		})
 	}
 }

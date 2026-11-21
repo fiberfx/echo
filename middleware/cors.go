@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/fiberfx/mx-echo/v6"
+	"github.com/fiberfx/mx-echo/v6/httprule"
 )
 
 // CORSConfig defines the config for CORS middleware.
@@ -303,10 +304,6 @@ func (config CORSConfig) starAllowOriginFunc(c *echo.Context, origin string) (st
 }
 
 func (config CORSConfig) defaultAllowOriginFunc(c *echo.Context, origin string) (string, bool, error) {
-	for _, allowedOrigin := range config.AllowOrigins {
-		if strings.EqualFold(allowedOrigin, origin) {
-			return allowedOrigin, true, nil
-		}
-	}
-	return "", false, nil
+	allowedOrigin, allowed := httprule.MatchOrigin(config.AllowOrigins, origin)
+	return allowedOrigin, allowed, nil
 }

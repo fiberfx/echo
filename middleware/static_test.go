@@ -14,6 +14,7 @@ import (
 	"testing/fstest"
 
 	"github.com/fiberfx/mx-echo/v6"
+	"github.com/fiberfx/mx-echo/v6/httprule"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -881,7 +882,7 @@ func TestHasDotOrEmptySegment(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.path, func(t *testing.T) {
-			assert.Equal(t, tc.expect, hasDotOrEmptySegment(tc.path))
+			assert.Equal(t, tc.expect, httprule.HasDotOrEmptySegment(tc.path))
 		})
 	}
 }

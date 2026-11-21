@@ -11,10 +11,10 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 
 	"github.com/fiberfx/mx-echo/v6"
+	"github.com/fiberfx/mx-echo/v6/httprule"
 )
 
 const gzipScheme = "gzip"
@@ -88,7 +88,7 @@ func (config GzipConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 			}
 			res := c.Response()
 			res.Header().Add(echo.HeaderVary, echo.HeaderAcceptEncoding)
-			if !acceptsGzip(c.Request().Header.Values(echo.HeaderAcceptEncoding)) {
+			if !httprule.AcceptsGzip(c.Request().Header.Values(echo.HeaderAcceptEncoding)) {
 				return next(c)
 			}
 
@@ -157,7 +157,7 @@ func (w *gzipResponseWriter) commitHeader() {
 }
 
 func (w *gzipResponseWriter) passThroughIfEncoded() bool {
-	if !w.wroteBody && !w.compressed && !w.encoded && hasContentCoding(w.Header().Values(echo.HeaderContentEncoding)) {
+	if !w.wroteBody && !w.compressed && !w.encoded && httprule.HasContentCoding(w.Header().Values(echo.HeaderContentEncoding)) {
 		w.encoded = true
 		w.commitHeader()
 	}
@@ -219,65 +219,4 @@ func (w *gzipResponseWriter) Push(target string, opts *http.PushOptions) error {
 		return p.Push(target, opts)
 	}
 	return http.ErrNotSupported
-}
-
-// hasContentCoding reports whether Content-Encoding lists any coding other than identity.
-func hasContentCoding(headers []string) bool {
-	for _, header := range headers {
-		for coding := range strings.SplitSeq(header, ",") {
-			coding = strings.TrimSpace(coding)
-			if coding != "" && !strings.EqualFold(coding, "identity") {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func acceptsGzip(headers []string) bool {
-	var gzipAllowed, wildcardAllowed, wildcardRefused bool
-	for _, header := range headers {
-		for entry := range strings.SplitSeq(header, ",") {
-			coding, weight, hasWeight := strings.Cut(entry, ";")
-			coding = strings.TrimSpace(coding)
-			switch {
-			case strings.EqualFold(coding, gzipScheme), strings.EqualFold(coding, "x-gzip"):
-				// RFC 9110, section 8.4.1.3: x-gzip is equivalent to gzip.
-				// An explicit refusal or invalid weight takes precedence over
-				// wildcards and over any duplicate entry allowing gzip.
-				if hasWeight && !positiveQualityValue(weight) {
-					return false
-				}
-				gzipAllowed = true
-			case coding == "*":
-				if hasWeight && !positiveQualityValue(weight) {
-					wildcardRefused = true
-				} else {
-					wildcardAllowed = true
-				}
-			}
-		}
-	}
-	return gzipAllowed || (wildcardAllowed && !wildcardRefused)
-}
-
-// positiveQualityValue matches the qvalue grammar in RFC 9110, section 12.4.2.
-func positiveQualityValue(weight string) bool {
-	name, value, ok := strings.Cut(strings.TrimSpace(weight), "=")
-	if !ok || !strings.EqualFold(name, "q") {
-		return false
-	}
-	whole, fraction, _ := strings.Cut(value, ".")
-	if (whole != "0" && whole != "1") || len(fraction) > 3 {
-		return false
-	}
-	positive := whole == "1"
-	for i := range len(fraction) {
-		digit := fraction[i]
-		if digit < '0' || digit > '9' || (whole == "1" && digit != '0') {
-			return false
-		}
-		positive = positive || digit != '0'
-	}
-	return positive
 }

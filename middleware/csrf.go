@@ -8,10 +8,10 @@ import (
 	"errors"
 	"net/http"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/fiberfx/mx-echo/v6"
+	"github.com/fiberfx/mx-echo/v6/httprule"
 )
 
 // CSRFUsingSecFetchSite is a context key for CSRF middleware what is set when the client browser is using Sec-Fetch-Site
@@ -280,10 +280,8 @@ func (config CSRFConfig) checkSecFetchSiteRequest(c *echo.Context) (bool, error)
 		// trusted sites ala OAuth callbacks etc. should be let through
 		origin := c.Request().Header.Get(echo.HeaderOrigin)
 		if origin != "" {
-			for _, trustedOrigin := range config.TrustedOrigins {
-				if strings.EqualFold(origin, trustedOrigin) {
-					return true, nil
-				}
+			if _, trusted := httprule.MatchOrigin(config.TrustedOrigins, origin); trusted {
+				return true, nil
 			}
 		}
 	}
