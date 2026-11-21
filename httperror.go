@@ -36,6 +36,9 @@ var (
 	ErrCookieNotFound         = errors.New("cookie not found")
 	ErrInvalidCertOrKeyType   = server.ErrInvalidCertOrKeyType
 	ErrInvalidListenerNetwork = errors.New("invalid listener network")
+
+	// ErrRoutesFrozen is returned by AddRoute, and is the panic value of Add, Pre and Use, after Freeze.
+	ErrRoutesFrozen = errors.New("echo: routes are frozen")
 )
 
 // ErrInvalidJSONPCallback is wrapped in the 400 Bad Request error that Context.JSONP and Context.JSONPBlob return when

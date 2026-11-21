@@ -23,6 +23,7 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/fiberfx/mx-echo/v6/internal/httprule"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1925,7 +1926,7 @@ func TestSanitizeURI(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.whenURI, func(t *testing.T) {
-			assert.Equal(t, tc.expect, sanitizeURI(tc.whenURI))
+			assert.Equal(t, tc.expect, httprule.SanitizeURI(tc.whenURI))
 		})
 	}
 }
@@ -2053,7 +2054,7 @@ func TestHasDotOrEmptySegment(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.path, func(t *testing.T) {
-			assert.Equal(t, tc.expect, hasDotOrEmptySegment(tc.path))
+			assert.Equal(t, tc.expect, httprule.HasDotOrEmptySegment(tc.path))
 		})
 	}
 }
