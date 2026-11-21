@@ -284,7 +284,12 @@ func (config ProxyConfig) ToMiddleware() (echo.MiddlewareFunc, error) {
 
 			req := c.Request()
 			res := c.Response()
-			if err := rewriteURL(config.RegexRewrite, req); err != nil {
+			// The upstream must receive a path consistent with the route that selected this middleware.
+			routed := isRouted(c)
+			if routed && hasDotSegment(req.URL.Path) {
+				return config.ErrorHandler(c, echo.ErrBadRequest)
+			}
+			if err := rewriteURL(config.RegexRewrite, req, routed); err != nil {
 				return config.ErrorHandler(c, err)
 			}
 

@@ -1,35 +1,16 @@
-# MX Echo Roadmap
+# FiberFX Echo roadmap
 
-This document exists so the community can see where Echo is heading. Echo is
-**actively maintained and MX Echo is going to be another flagship implementation on mx runtime**. 
-We publish releases regularly across two supported lines — see [README](./README.md) badges for the latest version and most recent commit.
+## v6.0.0
 
-## Version policy
+The first FiberFX version uses the module path `github.com/fiberfx/echo/v6` and requires Go 1.27.4. The root package, middleware and test helpers share one release. The [contributor guide](README.md#open-the-workspace) explains how to open the module and test an application against a local checkout.
 
-| Line | Status | Support |
-|------|--------------------------------|---------------------|
-| `v6` | **Current** (since 2026-01-18) | New features and improvements shifting architecture with deep mx and ecd integration. |
-| `v5` | v6 not compatible | MX Echo superseeded. Breaking changes.|
-| `v4` | v6 not compatible | MX Echo superseeded. Breaking changes.|
+The [v6.0.0 release](https://github.com/fiberfx/echo/releases/tag/v6.0.0) contains the framework, middleware and test helpers. Existing LabStack v4 and v5 releases retain their upstream module paths. Applications that expose Echo types through another package must migrate that package as well.
 
-Echo v6 supports the **three most recent Go releases** and may work with older versions.
+## Under consideration
 
-## Now (in progress)
+- Explore startup through an MX `mx.yml` job and integration with the ecd runtime.
+- Evaluate opt-in automatic `HEAD` handling for `GET` routes.
+- Expose retry and quota information from the rate limiter.
+- Review `Forwarded` handling and proxy authorization header behavior.
 
-- New `v6` API surface through point releases. Point first v6.0.0.
-- Documentation catch-up for v6 (e.g. CORS / `RouteNotFound` behavior on groups).
-- mx.yml seamless startup.
-
-## Next (under consideration)
-
-- **Automatic `HEAD` for `GET` routes** (#2895; see #2949) — opt-in, likely via an
-  `OnAddRoute` hook so users keep control.
-- **Rate limiter response metadata** — expose `Retry-After` / remaining quota
-  through the store interface (#2961).
-- **Real-IP / `Forwarded` header handling** improvements (#2744).
-- **Proxy middleware** authorization-header handling (#2787).
-
-## Later
-
-- Continued alignment with the Go standard library (`net/http`, `slog`).
-- Reducing third-party surface where the stdlib now covers the need.
+Changes to routing, middleware or application lifecycle need a consumer test before they become part of the v6 contract.

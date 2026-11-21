@@ -5,6 +5,7 @@ package middleware
 
 import (
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -48,7 +49,8 @@ func rewriteRulesRegex(rewrite map[string]string) map[*regexp.Regexp]string {
 	return rulesRegex
 }
 
-func rewriteURL(rewriteRegex map[*regexp.Regexp]string, req *http.Request) error {
+// rewriteURL applies the first matching rule. A routed target must be a literal path on the same authority.
+func rewriteURL(rewriteRegex map[*regexp.Regexp]string, req *http.Request, routed bool) error {
 	if len(rewriteRegex) == 0 {
 		return nil
 	}
@@ -71,7 +73,11 @@ func rewriteURL(rewriteRegex map[*regexp.Regexp]string, req *http.Request) error
 
 	for k, v := range rewriteRegex {
 		if replacer := captureTokens(k, rawURI); replacer != nil {
-			url, err := req.URL.Parse(replacer.Replace(v))
+			target := replacer.Replace(v)
+			if routed {
+				return setRewriteTarget(req, target)
+			}
+			url, err := req.URL.Parse(target)
 			if err != nil {
 				return err
 			}
@@ -81,6 +87,43 @@ func rewriteURL(rewriteRegex map[*regexp.Regexp]string, req *http.Request) error
 		}
 	}
 	return nil
+}
+
+// setRewriteTarget updates only the path and query of a request whose route has already been selected.
+func setRewriteTarget(req *http.Request, target string) error {
+	target, _, _ = strings.Cut(target, "#")
+	rawPath, query, _ := strings.Cut(target, "?")
+	path, err := url.PathUnescape(rawPath)
+	if err != nil || !strings.HasPrefix(path, "/") || strings.HasPrefix(path, "//") || hasDotSegment(path) {
+		return echo.ErrBadRequest
+	}
+
+	u := *req.URL
+	u.Path = path
+	u.RawPath = ""
+	if u.EscapedPath() != rawPath {
+		u.RawPath = rawPath
+	}
+	u.RawQuery = query
+	u.ForceQuery = false
+	u.Fragment, u.RawFragment = "", ""
+	req.URL = &u
+	return nil
+}
+
+func hasDotSegment(path string) bool {
+	for segment := range strings.SplitSeq(path, "/") {
+		if segment == "." || segment == ".." {
+			return true
+		}
+	}
+	return false
+}
+
+// isRouted includes router misses, which carry a named fallback route.
+func isRouted(c *echo.Context) bool {
+	route := c.RouteInfo()
+	return route.Method != "" || route.Name != ""
 }
 
 // DefaultSkipper returns false which processes the middleware.

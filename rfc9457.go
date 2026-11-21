@@ -71,24 +71,18 @@ func ProblemDetailsHTTPErrorHandler(exposeError bool) HTTPErrorHandler {
 			return
 		}
 
-		var pe *ProblemError
+		pe, hasProblem := errors.AsType[*ProblemError](err)
 		var pder ProblemErrorer
 		switch {
-		case errors.As(err, &pe):
+		case hasProblem:
 		case errors.As(err, &pder):
 			if pe = pder.ProblemError(); pe == nil {
 				pe = &ProblemError{}
 			}
 		default:
-			pe = &ProblemError{}
+			pe = &ProblemError{Status: StatusCode(err)}
 
-			var sc HTTPStatusCoder
-			if errors.As(err, &sc) {
-				pe.Status = sc.StatusCode()
-			}
-
-			var he *HTTPError
-			if errors.As(err, &he) {
+			if he, ok := errors.AsType[*HTTPError](err); ok {
 				pe.Detail = he.Message
 				if exposeError {
 					if wrapped := he.Unwrap(); wrapped != nil {
@@ -118,7 +112,9 @@ func ProblemDetailsHTTPErrorHandler(exposeError bool) HTTPErrorHandler {
 			problem.Title = http.StatusText(problem.Status)
 		}
 
-		c.Response().Header().Set(HeaderContentType, MIMEApplicationProblemJSON)
+		header := c.Response().Header()
+		clearRepresentationHeaders(header)
+		header.Set(HeaderContentType, MIMEApplicationProblemJSON)
 
 		var cErr error
 		if c.Request().Method == http.MethodHead { // Issue #608

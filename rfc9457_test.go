@@ -110,6 +110,15 @@ func TestProblemDetailsHTTPErrorHandler(t *testing.T) {
 			expectBody:   `{"type":"https://example.com/probs/out-of-credit","title":"You do not have enough credit.","status":403,"detail":"Your current balance is 30, but that costs 50.","instance":"/account/12345/msgs/abc"}` + "\n",
 		},
 		{
+			name: "wrapped problem takes precedence over a custom converter",
+			whenError: errors.Join(
+				&customProblemErrorer{pe: &ProblemError{Status: http.StatusConflict}},
+				fmt.Errorf("wrapped: %w", &ProblemError{Status: http.StatusNotFound}),
+			),
+			expectStatus: http.StatusNotFound,
+			expectBody:   `{"type":"about:blank","title":"Not Found","status":404}` + "\n",
+		},
+		{
 			name:         "ok, error is *ProblemError with zero fields, defaults are filled",
 			whenMethod:   http.MethodGet,
 			whenError:    &ProblemError{},

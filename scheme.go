@@ -103,8 +103,8 @@ func schemeFromHeaders(req *http.Request) string {
 	// comma-separated list) the last one was added by the nearest proxy.
 	if values := req.Header.Values(HeaderXForwardedProto); len(values) > 0 && values[len(values)-1] != "" {
 		last := values[len(values)-1]
-		if i := strings.LastIndexByte(last, ','); i != -1 {
-			last = last[i+1:]
+		if _, nearest, found := strings.CutLast(last, ","); found {
+			last = nearest
 		}
 		if scheme, ok := canonicalProto(strings.TrimSpace(last)); ok {
 			return scheme

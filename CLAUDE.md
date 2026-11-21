@@ -1,99 +1,23 @@
-# CLAUDE.md
+# Working on FiberFX Echo
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Open the module root in GoLand or use the Go tools from that directory. The module is `github.com/fiberfx/echo/v6`. Its minimum Go version is 1.27.4. The [README](README.md) includes a tested server example and the steps for developing Echo and an application in the same Go workspace.
 
-## About This Project
+## Development commands
 
-Echo is a high performance, minimalist Go web framework. This is the main repository for Echo v5, which is available as a Go module at `github.com/labstack/echo/v5`.
+- `go list ./...` lists the framework, middleware and `echotest` packages.
+- `go test ./...` runs the tests. Use `go test -race ./...` when changing request handling or shared state.
+- `go vet ./...` checks the module. `make check` also runs the configured linter and race suite.
+- `go test -run='^$' -bench=. -benchmem ./...` runs the benchmarks.
+- `GOWORK=off go mod tidy -diff` checks the dependency manifest independently of a contributor workspace.
 
-## Development Commands
+## Where to make a change
 
-The project uses a Makefile for common development tasks:
+| Responsibility | Source |
+| --- | --- |
+| Route registration, middleware composition, request dispatch | `echo.go`, `group.go`, `router.go` |
+| Request and response state | `context.go`, `response.go` |
+| Body and parameter binding | `bind.go`, `binder.go`, `binder_generic.go` |
+| Middleware implementations | `middleware/` |
+| Public testing helpers | `echotest/` |
 
-- `make check` - Run linting, vetting, and race condition tests (default target)
-- `make init` - Install required linting tools (golint, staticcheck)
-- `make lint` - Run staticcheck and golint
-- `make vet` - Run go vet
-- `make test` - Run short tests
-- `make race` - Run tests with race detector
-- `make benchmark` - Run benchmarks
-
-Example commands for development:
-```bash
-# Setup development environment
-make init
-
-# Run all checks (lint, vet, race)
-make check
-
-# Run specific tests
-go test ./middleware/...
-go test -race ./...
-
-# Run benchmarks
-make benchmark
-```
-
-## Code Architecture
-
-### Core Components
-
-**Echo Instance (`echo.go`)**
-- The `Echo` struct is the top-level framework instance
-- Contains router, middleware stacks, and server configuration
-- Not goroutine-safe for mutations after server start
-
-**Context (`context.go`)**
-- The `Context` struct represents HTTP request/response context
-- Provides methods for request/response handling, path parameters, data binding
-- Core abstraction for request processing
-
-**Router (`router.go`)**
-- Radix tree-based HTTP router with smart route prioritization
-- Supports static routes, parameterized routes (`/users/:id`), and wildcard routes (`/static/*`)
-- Each HTTP method has its own routing tree
-
-**Middleware (`middleware/`)**
-- Extensive middleware system with 50+ built-in middlewares
-- Middleware can be applied at Echo, Group, or individual route level
-- Common middleware: Logger, Recover, CORS, JWT, Rate Limiting, etc.
-
-### Key Patterns
-
-**Middleware Chain**
-- Pre-middleware runs before routing
-- Regular middleware runs after routing but before handlers
-- Middleware functions have signature `func(next echo.HandlerFunc) echo.HandlerFunc`
-
-**Route Groups**
-- Routes can be grouped with common prefixes and middleware
-- Groups support nested sub-groups
-- Defined in `group.go`
-
-**Data Binding**
-- Automatic binding of request data (JSON, XML, form) to Go structs
-- Implemented in `binder.go` with support for custom binders
-
-**Error Handling**
-- Centralized error handling via `HTTPErrorHandler`
-- Automatic panic recovery with stack traces
-
-## File Organization
-
-- Root directory: Core Echo functionality (echo.go, context.go, router.go, etc.)
-- `middleware/`: All built-in middleware implementations
-- `_test/`: Test fixtures and utilities
-- `_fixture/`: Test data files
-
-## Code Style
-
-- Go code uses tabs for indentation (per .editorconfig)
-- Follows standard Go conventions and formatting
-- Uses gofmt, golint, and staticcheck for code quality
-
-## Testing
-
-- Standard Go testing with `testing` package
-- Tests include unit tests, integration tests, and benchmarks
-- Race condition testing is required (`make race`)
-- Test files follow `*_test.go` naming convention
+Handlers have the signature `func(*echo.Context) error`. Middleware wraps an `echo.HandlerFunc`. Preserve the order of pre-routing, group and route middleware when changing the request path. Keep package imports under the v6 module path and retain upstream attribution in inherited files.

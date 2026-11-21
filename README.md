@@ -1,144 +1,67 @@
-# High performance, extensible, minimalist Go web framework.
+# FiberFX Echo v6
 
-## About
+FiberFX Echo is a Go HTTP framework derived from LabStack Echo v5.4.6 with the v5.4.7 fixes adapted to v6. Its router, middleware and request-test helpers ship together as one module, `github.com/fiberfx/echo/v6`. The minimum Go version is **1.27.4**.
 
-Echo is built on Go's standard `net/http` and interoperates with it through `echo.WrapHandler` and `echo.WrapMiddleware`. It adds the parts the standard library leaves to you: a fast radix-tree router, request binding with pluggable validation, official and third-party middleware, and centralized error handling. Echo is actively maintained, and `v5` is the current release line.
+## Open the workspace
 
-### How a request flows
+Open the directory containing [go.mod](go.mod) in GoLand or another Go editor. Run Go commands from that directory. The same module defines all three public packages.
 
-1. **Pre middleware** (`e.Pre`) runs before routing, so it can rewrite the path or method.
-2. The **router** matches the route.
-3. **Middleware** registered with `e.Use`, a group or a route runs.
-4. The **handler** writes the response.
-5. Any error returned by middleware or the handler goes to one `HTTPErrorHandler`.
-
-### Features
-
-- Radix-tree [router](https://echo.labstack.com/guide/routing/) with static, parameter and wildcard routes; static routes match first
-- Route groups, with middleware at the root, group or route level
-- [Data binding](https://echo.labstack.com/guide/binding/) for JSON, XML, form, query and path parameters, with pluggable validation
-- Helpers for JSON, XML, HTML, file, stream and other responses
-- Centralized [error handling](https://echo.labstack.com/guide/error-handling/)
-- Structured request logging with `log/slog`
-- [Template rendering](https://echo.labstack.com/guide/templates/) with any template engine
-- TLS, [HTTP/2](https://echo.labstack.com/cookbook/http2/), [Let's Encrypt certificates](https://echo.labstack.com/cookbook/auto-tls/) through `autocert`, and [graceful shutdown](https://echo.labstack.com/cookbook/graceful-shutdown/)
-
-## Getting started
-
-### Supported versions
-
-- `v5` is the current major version, released on 2026-01-18. See [API_CHANGES_V5.md](./API_CHANGES_V5.md) for the API changes from `v4` and upgrade notes.
-- `v4` receives bug fixes until 2026-12-31 and security fixes until 2027-12-31, on its latest release. See [SECURITY.md](./SECURITY.md).
-
-> **Note:** Echo v4 is in maintenance and gets no new features. Start new projects on v5, and plan v4 upgrades with [API_CHANGES_V5.md](./API_CHANGES_V5.md).
-
-See [ROADMAP.md](./ROADMAP.md) for where Echo is heading and the version support policy.
-
-### Installation
+| Import | Responsibility |
+| --- | --- |
+| `github.com/fiberfx/echo/v6` | Route registration, request context, binding, responses and server lifecycle |
+| `github.com/fiberfx/echo/v6/middleware` | HTTP middleware, including request logging, recovery and compression |
+| `github.com/fiberfx/echo/v6/echotest` | Request contexts, response recorders and fixtures for handler tests |
 
 ```sh
-go get github.com/labstack/echo/v5
+go version
+go list ./...
+go test ./...
+go vet ./...
+go test -race ./...
 ```
 
-Echo v5 supports the three most recent Go [releases](https://go.dev/doc/devel/release) and may work with older ones. Echo v4 requires Go 1.26 or later.
+The `go` directive sets the minimum supported toolchain. To repeat the contributor checks on this exact patch release, use `GOTOOLCHAIN=go1.27.4 make check`. The `lint` target uses the repository's [golangci-lint configuration](.golangci.yaml). `make init` installs its pinned linter. Put the Go binary installation directory on your `PATH` before running `make check`.
 
-### Example
+## Use v6 from an application
+
+While developing Echo and an application together, put their checkouts under a common parent. For an application module in `myapp`, run the following from the parent directory. If a workspace already exists there, use `go work use ./echo ./myapp` to add the modules.
+
+```sh
+go work init ./echo ./myapp
+go -C myapp test ./...
+```
+
+The workspace selects local source in both modules. A standalone application can select the `v6.0.0` release with `go get github.com/fiberfx/echo/v6@v6.0.0`. After adding imports such as `middleware`, run `go mod tidy` in the application to record the dependencies its packages use.
+
+For an application moving from v5, change Echo imports in handlers, middleware and tests together. Go treats types from the two module paths as distinct. A dependency that accepts `*echo.Context` or returns `echo.MiddlewareFunc` must use the same major version as its caller. Standard `http.Handler` implementations can be mounted with `echo.WrapHandler`.
+
+## Serve a request
 
 ```go
 package main
 
 import (
-	"log/slog"
+	"log"
 	"net/http"
 
-	"github.com/labstack/echo/v5"
-	"github.com/labstack/echo/v5/middleware"
+	"github.com/fiberfx/echo/v6"
+	"github.com/fiberfx/echo/v6/middleware"
 )
 
 func main() {
 	e := echo.New()
-
-	e.Use(middleware.RequestLogger()) // log requests with log/slog
-	e.Use(middleware.Recover())       // recover from panics and return an error
-
-	e.GET("/", hello)
-
+	e.Use(middleware.RequestLogger(), middleware.Recover())
+	e.GET("/hello/:name", func(c *echo.Context) error {
+		return c.String(http.StatusOK, "Hello, "+c.Param("name")+"!")
+	})
 	if err := e.Start(":8080"); err != nil {
-		slog.Error("failed to start server", "error", err)
+		log.Fatal(err)
 	}
 }
-
-func hello(c *echo.Context) error {
-	return c.String(http.StatusOK, "Hello, World!")
-}
 ```
 
-Run it and send a request:
+Run the program with `go run .`. A request to `http://localhost:8080/hello/Ada` returns `Hello, Ada!`. Pre-routing middleware registered with `e.Pre` runs before the router. Once a route matches, Echo calls its middleware and handler. Returned errors go to `HTTPErrorHandler`.
 
-```console
-$ go run .
-$ curl http://localhost:8080/
-Hello, World!
-```
+## Origins and contributions
 
-`e.Start` shuts the server down gracefully on <kbd>Ctrl</kbd>+<kbd>C</kbd>.
-
-More in the [guide](https://echo.labstack.com/guide/quickstart/) and the [cookbook](https://echo.labstack.com/cookbook/hello-world/).
-
-## Middleware
-
-### Official
-
-Maintained by the Echo team.
-
-| Repository | Description |
-| --- | --- |
-| [labstack/echo-jwt](https://github.com/labstack/echo-jwt) | [JWT](https://github.com/golang-jwt/jwt) authentication |
-| [labstack/echo-contrib](https://github.com/labstack/echo-contrib) | [Casbin](https://github.com/casbin/casbin), [gorilla/sessions](https://github.com/gorilla/sessions) and [pprof](https://pkg.go.dev/net/http/pprof) |
-| [labstack/echo-otel](https://github.com/labstack/echo-otel) | [OpenTelemetry](https://opentelemetry.io/) tracing and metrics |
-| [labstack/echo-prometheus](https://github.com/labstack/echo-prometheus) | [Prometheus](https://github.com/prometheus/client_golang/) metrics |
-
-### Third-party
-
-<details>
-<summary>Third-party middleware list</summary>
-
-These projects are maintained by their authors, not the Echo team. Review them before use, and check which Echo version (`v4` or `v5`) each supports.
-
-| Repository | Description |
-| --- | --- |
-| [oapi-codegen/oapi-codegen](https://github.com/oapi-codegen/oapi-codegen) | [OpenAPI](https://swagger.io/specification/) client and server code generator |
-| [swaggo/echo-swagger](https://github.com/swaggo/echo-swagger) | Serves [Swagger](https://swagger.io/) 2.0 API documentation |
-| [ziflex/lecho](https://github.com/ziflex/lecho) | [Zerolog](https://github.com/rs/zerolog) logger for Echo |
-| [brpaz/echozap](https://github.com/brpaz/echozap) | Uber [Zap](https://github.com/uber-go/zap) logging middleware |
-| [samber/slog-echo](https://github.com/samber/slog-echo) | [log/slog](https://pkg.go.dev/log/slog) logging middleware |
-| [darkweak/souin](https://github.com/darkweak/souin/tree/master/plugins/echo) | HTTP cache middleware based on [Souin](https://github.com/darkweak/souin), with distributed storage support |
-| [mikestefanello/pagoda](https://github.com/mikestefanello/pagoda) | Full-stack web development starter kit built on Echo |
-| [go-woo/protoc-gen-echo](https://github.com/go-woo/protoc-gen-echo) | Generates Echo server code from Protocol Buffers |
-
-</details>
-
-To add your library, send a pull request.
-
-## Contributing
-
-- For a small change, send a pull request.
-- For a bigger change, open an issue to discuss it first.
-- A pull request should include tests, documentation and, where it helps, an example.
-
-## Security
-
-> **Important:** Report vulnerabilities privately through [GitHub Security Advisories](https://github.com/labstack/echo/security/advisories/new), not in public issues. See [SECURITY.md](./SECURITY.md) for supported versions.
-
-## Credits
-
-- [Vishal Rana](https://github.com/vishr) (Author and Maintainer)
-- [Nitin Rana](https://github.com/nr17) (Consultant)
-- [Martti T.](https://github.com/aldas) (Maintainer Emeritus)
-- [Roland Lammel](https://github.com/lammel) (Maintainer Emeritus)
-- [Pablo Andres Fuente](https://github.com/pafuent) (Maintainer Emeritus)
-- [Contributors](https://github.com/labstack/echo/graphs/contributors)
-
-## License
-
-[MIT](./LICENSE)
+FiberFX Echo builds on the work of Vishal Rana, Nitin Rana, Martti T., Roland Lammel, Pablo Andres Fuente and the [LabStack Echo contributors](https://github.com/labstack/echo/graphs/contributors). The [changelog](CHANGELOG.md) retains the upstream history. See the [roadmap](ROADMAP.md) for the FiberFX line and [LICENSE](LICENSE) for the MIT terms.

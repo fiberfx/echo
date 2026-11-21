@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 )
 
@@ -49,10 +50,7 @@ func (r Route) WithPrefix(pathPrefix string, middlewares []MiddlewareFunc) Route
 	r.Path = pathPrefix + r.Path
 
 	if len(middlewares) > 0 {
-		m := make([]MiddlewareFunc, 0, len(middlewares)+len(r.Middlewares))
-		m = append(m, middlewares...)
-		m = append(m, r.Middlewares...)
-		r.Middlewares = m
+		r.Middlewares = slices.Concat(middlewares, r.Middlewares)
 	}
 	return r
 }

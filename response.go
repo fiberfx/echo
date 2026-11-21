@@ -5,6 +5,7 @@ package echo
 
 import (
 	"bufio"
+	"cmp"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -52,6 +53,11 @@ func (r *Response) WriteHeader(code int) {
 		r.logger.Error("echo: response already written to client")
 		return
 	}
+	if isInformationalStatus(code) {
+		// Informational responses precede the final status and do not commit the response.
+		r.ResponseWriter.WriteHeader(code)
+		return
+	}
 	r.Status = code
 	for _, fn := range r.beforeFuncs {
 		fn()
@@ -63,10 +69,7 @@ func (r *Response) WriteHeader(code int) {
 // Write writes the data to the connection as part of an HTTP reply.
 func (r *Response) Write(b []byte) (n int, err error) {
 	if !r.Committed {
-		if r.Status == 0 {
-			r.Status = http.StatusOK
-		}
-		r.WriteHeader(r.Status)
+		r.WriteHeader(cmp.Or(r.Status, http.StatusOK))
 	}
 	n, err = r.ResponseWriter.Write(b)
 	r.Size += int64(n)
@@ -80,8 +83,15 @@ func (r *Response) Write(b []byte) (n int, err error) {
 // buffered data to the client.
 // See [http.Flusher](https://golang.org/pkg/net/http/#Flusher)
 func (r *Response) Flush() {
+	if !r.Committed {
+		if !supportsFlush(r.ResponseWriter) {
+			panic(fmt.Errorf("echo: response writer %T does not support flushing (http.Flusher interface)", r.ResponseWriter))
+		}
+		// Flushing sends the headers, so commit them the same way Write does.
+		r.WriteHeader(cmp.Or(r.Status, http.StatusOK))
+	}
 	err := http.NewResponseController(r.ResponseWriter).Flush()
-	if err != nil && errors.Is(err, http.ErrNotSupported) {
+	if errors.Is(err, http.ErrNotSupported) {
 		panic(fmt.Errorf("echo: response writer %T does not support flushing (http.Flusher interface)", r.ResponseWriter))
 	}
 }
@@ -132,6 +142,31 @@ func UnwrapResponse(rw http.ResponseWriter) (*Response, error) {
 	}
 }
 
+// isInformationalStatus reports whether code is a 1xx status that precedes the final one.
+// 101 Switching Protocols is final.
+func isInformationalStatus(code int) bool {
+	return code >= 100 && code < 200 && code != http.StatusSwitchingProtocols
+}
+
+// supportsFlush reports whether http.ResponseController can flush rw. It uses
+// the same lookup, skipping Echo writers whose Flush delegates to another writer.
+func supportsFlush(rw http.ResponseWriter) bool {
+	for {
+		switch t := rw.(type) {
+		case *Response:
+			rw = t.Unwrap()
+		case *delayedStatusWriter:
+			rw = t.Unwrap()
+		case interface{ FlushError() error }, http.Flusher:
+			return true
+		case interface{ Unwrap() http.ResponseWriter }:
+			rw = t.Unwrap()
+		default:
+			return false
+		}
+	}
+}
+
 // delayedStatusWriter is a wrapper around http.ResponseWriter that delays writing the status code until first Write is called.
 // This allows (global) error handler to decide correct status code to be sent to the client.
 type delayedStatusWriter struct {
@@ -141,25 +176,35 @@ type delayedStatusWriter struct {
 }
 
 func (w *delayedStatusWriter) WriteHeader(statusCode int) {
+	if isInformationalStatus(statusCode) {
+		w.ResponseWriter.WriteHeader(statusCode)
+		return
+	}
 	// in case something else writes status code explicitly before us we need mark response committed
 	w.committed = true
 	w.ResponseWriter.WriteHeader(statusCode)
 }
 
+func (w *delayedStatusWriter) commit() {
+	w.committed = true
+	w.status = cmp.Or(w.status, http.StatusOK)
+	w.ResponseWriter.WriteHeader(w.status)
+}
+
 func (w *delayedStatusWriter) Write(data []byte) (int, error) {
 	if !w.committed {
-		w.committed = true
-		if w.status == 0 {
-			w.status = http.StatusOK
-		}
-		w.ResponseWriter.WriteHeader(w.status)
+		w.commit()
 	}
 	return w.ResponseWriter.Write(data)
 }
 
 func (w *delayedStatusWriter) Flush() {
+	if !w.committed && supportsFlush(w.ResponseWriter) {
+		// Flushing sends the headers, so send the delayed status first.
+		w.commit()
+	}
 	err := http.NewResponseController(w.ResponseWriter).Flush()
-	if err != nil && errors.Is(err, http.ErrNotSupported) {
+	if errors.Is(err, http.ErrNotSupported) {
 		panic(errors.New("response writer flushing is not supported"))
 	}
 }
@@ -195,6 +240,10 @@ func (w *headResponseWriter) Header() http.Header {
 
 func (w *headResponseWriter) WriteHeader(code int) {
 	if w.wroteStatus {
+		return
+	}
+	if isInformationalStatus(code) {
+		w.rw.WriteHeader(code)
 		return
 	}
 	w.wroteStatus = true

@@ -6,6 +6,7 @@ package echo
 import (
 	"io/fs"
 	"net/http"
+	"slices"
 )
 
 // Group is a set of sub-routes for a specified route. It can be used for inner
@@ -28,6 +29,9 @@ type Group struct {
 // Important! Group middlewares are executed in case there was no exact route match as by default Group registers
 // `/*` NotFound routes for itself. If this kind of behavior is not needed, then create an Echo instance with the ` noAutoRegisterRoutes `
 // flag set to true. Example `echo.NewWithConfig(echo.Config{NoGroupAutoRegister404Routes: true})`.
+//
+// Group middleware can produce a response before route middleware runs. Register
+// files with [Group.Static] or [Group.StaticFS] to apply guards to their routes.
 func (g *Group) Use(middleware ...MiddlewareFunc) {
 	g.middleware = append(g.middleware, middleware...)
 	if len(g.middleware) == 0 {
@@ -135,9 +139,7 @@ func (g *Group) Match(methods []string, path string, handler HandlerFunc, middle
 // `/*` NotFound routes for itself. If this kind of behavior is not needed, then create an Echo instance with the ` noAutoRegisterRoutes `
 // flag set to true. Example `echo.NewWithConfig(echo.Config{NoGroupAutoRegister404Routes: true})`.
 func (g *Group) Group(prefix string, middleware ...MiddlewareFunc) (sg *Group) {
-	m := make([]MiddlewareFunc, 0, len(g.middleware)+len(middleware))
-	m = append(m, g.middleware...)
-	m = append(m, middleware...)
+	m := slices.Concat(g.middleware, middleware)
 	sg = g.echo.Group(g.prefix+prefix, m...)
 	return
 }
@@ -154,12 +156,7 @@ func (g *Group) Static(pathPrefix, fsRoot string, middleware ...MiddlewareFunc) 
 // prefix for directory path. This is necessary as `//go:embed assets/images` embeds files with paths
 // including `assets/images` as their prefix.
 func (g *Group) StaticFS(pathPrefix string, filesystem fs.FS, middleware ...MiddlewareFunc) RouteInfo {
-	return g.Add(
-		http.MethodGet,
-		pathPrefix+"*",
-		StaticDirectoryHandler(filesystem, !g.echo.enablePathUnescapingStaticFiles),
-		middleware...,
-	)
+	return g.echo.mountStatic(g.prefix, pathPrefix, filesystem, g.GET, middleware)
 }
 
 // FileFS implements `Echo#FileFS()` for sub-routes within the Group.
@@ -215,9 +212,6 @@ func (g *Group) Add(method, path string, handler HandlerFunc, middleware ...Midd
 
 // AddRoute registers a new Routable with Router
 func (g *Group) AddRoute(route Route) (RouteInfo, error) {
-	// Combine middleware into a new slice to avoid accidentally passing the same slice for
-	// multiple routes, which would lead to later add() calls overwriting the
-	// middleware from earlier calls.
-	groupRoute := route.WithPrefix(g.prefix, append([]MiddlewareFunc{}, g.middleware...))
+	groupRoute := route.WithPrefix(g.prefix, g.middleware)
 	return g.echo.add(groupRoute)
 }

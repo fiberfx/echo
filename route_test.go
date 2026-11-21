@@ -145,6 +145,21 @@ func TestRoute_ForGroup(t *testing.T) {
 	assert.Equal(t, r.Name, "test route")
 }
 
+func TestRoute_WithPrefixCopiesMiddleware(t *testing.T) {
+	mw := func(next HandlerFunc) HandlerFunc { return next }
+	groupMiddleware := make([]MiddlewareFunc, 1, 2)
+	groupMiddleware[0] = mw
+	route := Route{Middlewares: []MiddlewareFunc{mw}}
+	groupRoute := route.WithPrefix("/users", groupMiddleware)
+
+	groupMiddleware[0] = nil
+	route.Middlewares[0] = nil
+	if assert.Len(t, groupRoute.Middlewares, 2) {
+		assert.NotNil(t, groupRoute.Middlewares[0])
+		assert.NotNil(t, groupRoute.Middlewares[1])
+	}
+}
+
 func exampleRoutes() Routes {
 	return Routes{
 		RouteInfo{

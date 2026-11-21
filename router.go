@@ -400,10 +400,7 @@ func (r *DefaultRouter) Remove(method string, path string) error {
 	var nodeToRemove *node
 	search := treePath
 	searchOffset := 0
-	for {
-		if !strings.HasPrefix(search, currentNode.prefix) {
-			break
-		}
+	for strings.HasPrefix(search, currentNode.prefix) {
 		search = search[len(currentNode.prefix):]
 		searchOffset += len(currentNode.prefix)
 

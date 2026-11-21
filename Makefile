@@ -1,32 +1,33 @@
-PKG := "github.com/labstack/echo"
-PKG_LIST := $(shell go list ${PKG}/...)
-
 .DEFAULT_GOAL := check
-check: lint vet race ## Check project
+.PHONY: check init lint vet test race benchmark help test_version
 
-init:
-	@go install golang.org/x/lint/golint@latest
-	@go install honnef.co/go/tools/cmd/staticcheck@latest
+GO ?= go
+GOLANGCI_LINT ?= golangci-lint
+goversion ?= 1.27.4
 
-lint: ## Lint the files
-	@staticcheck ${PKG_LIST}
-	@golint -set_exit_status ${PKG_LIST}
+check: lint vet race ## Run the contributor checks
 
-vet: ## Vet the files
-	@go vet ${PKG_LIST}
+init: ## Download module dependencies and install the configured linter
+	$(GO) mod download
+	$(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 
-test: ## Run tests
-	@go test -short ${PKG_LIST}
+lint: ## Lint all three packages
+	$(GOLANGCI_LINT) run ./...
 
-race: ## Run tests with data race detector
-	@go test -race ${PKG_LIST}
+vet: ## Vet all packages
+	$(GO) vet ./...
 
-benchmark: ## Run benchmarks
-	@go test -run="-" -benchmem -bench=".*" ${PKG_LIST}
+test: ## Run short tests
+	$(GO) test -short ./...
 
-help: ## Display this help screen
-	@grep -h -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+race: ## Run the full suite with the race detector
+	$(GO) test -race ./...
 
-goversion ?= "1.25"
-test_version: ## Run tests inside Docker with given version (defaults to 1.25 oldest supported). Example: make test_version goversion=1.25
-	@docker run --rm -it -v $(shell pwd):/project golang:$(goversion) /bin/sh -c "cd /project && make init check"
+benchmark: ## Run benchmarks and report allocations
+	$(GO) test -run='^$$' -bench=. -benchmem ./...
+
+test_version: ## Run vet and the race suite in the selected Go container
+	docker run --rm -v "$(CURDIR):/project" -w /project golang:$(goversion) make vet race
+
+help: ## Display available targets
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_]+:.*?## / {printf "%-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)

@@ -1,19 +1,17 @@
-# Echo
+# FiberFX Echo v6
 
 > Echo is a high performance, extensible, minimalist Go web framework built on the standard `net/http` library. Echo adds a fast radix-tree router, request binding with pluggable validator, a deep middleware ecosystem, centralized error handling, and template rendering on top of the standard library.
 
 Key facts for LLMs:
-- Import path is `github.com/labstack/echo/v5`
+- Import path is `github.com/fiberfx/echo/v6`
 - Handlers use `*echo.Context` (pointer to struct)
 - `Context` is a concrete struct, not an interface
 - Logging uses `log/slog`
-- Go 1.25+ required
+- Go 1.27.4+ required
 
-## Quick Reference
+## Workspace
 
-- [Echo v5 API Changes](https://github.com/labstack/echo/blob/master/API_CHANGES_V5.md): Breaking changes reference
-- [Echo Official Docs](https://echo.labstack.com): Human-readable documentation site
-- [pkg.go.dev](https://pkg.go.dev/github.com/labstack/echo/v5): API reference on Go package discovery
+Open the directory containing `go.mod` and run `go list ./...` or `go test ./...`. The core, `middleware` and `echotest` packages share the same v6 module. Use `go doc` in the checkout for the current public API. See [the README](README.md) for installation and migration.
 
 ## Core Patterns
 
@@ -26,8 +24,8 @@ import (
     "log/slog"
     "net/http"
 
-    "github.com/labstack/echo/v5"
-    "github.com/labstack/echo/v5/middleware"
+    "github.com/fiberfx/echo/v6"
+    "github.com/fiberfx/echo/v6/middleware"
 )
 
 func hello(c *echo.Context) error {
@@ -154,7 +152,7 @@ e.Use(middleware.BasicAuth(func(c *echo.Context, username, password string) (boo
 e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
 // Route-level middleware
-e.GET("/sensitive", handler, middleware.RequestID(), middleware.Logger())
+e.GET("/sensitive", handler, middleware.RequestID(), middleware.RequestLogger())
 ```
 
 ### Response helpers
@@ -207,9 +205,7 @@ if err := sc.Start(ctx, e); err != nil {
 }
 ```
 
-## Optional
+## Project documents
 
-- [Echo GitHub Discussions](https://github.com/labstack/echo/discussions): Community Q&A and proposals
-- [Echo Roadmap](https://github.com/labstack/echo/blob/master/ROADMAP.md): Future plans
-- [Echo Changelog](https://github.com/labstack/echo/blob/master/CHANGELOG.md): Release history
-- [API_CHANGES_V5.md](https://github.com/labstack/echo/blob/master/API_CHANGES_V5.md): Full v5 breaking changes reference
+- [FiberFX roadmap](ROADMAP.md)
+- [Changelog and upstream history](CHANGELOG.md)

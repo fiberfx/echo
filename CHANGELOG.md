@@ -1,5 +1,21 @@
 # Changelog
 
+## FiberFX v6.0.0 — 2026-11-21
+
+- The module path is `github.com/fiberfx/echo/v6`. The core framework, middleware and test helpers require Go 1.27.4. Update all three imports together when moving from LabStack v5.4.6.
+- Grouped routes combine group and route middleware in one allocation. Forwarded scheme parsing uses `strings.CutLast`. The RFC 9457 handler uses `errors.AsType` to recognize concrete error types.
+- The standard Go commands run from the module root. See the [workspace guide](README.md#open-the-workspace) to test a local application against v6.
+
+### Changes adopted from LabStack v5.4.7
+
+The source revision is `59aacddc4a13904b8a80a76f1ec838c495b5feca`. The v6 implementation keeps the FiberFX import path and Go 1.27.4 requirement. [Upstream changes](https://github.com/labstack/echo/compare/v5.4.6...v5.4.7)
+
+- Static directories match paths beneath the mount. Registering a mount preserves an existing GET or catch-all handler at the directory URL. The returned file route ends in `/*` for a mount such as `/assets`.
+- Proxy and rewrite middleware preserve the routed path boundary. Pre-routing rewrites retain their URL resolution behavior. Register protected files with `Group.Static` or `Group.StaticFS` so their route middleware runs.
+- The binder supports string keys and string, string-slice or empty-interface map values, including named string keys and named slices of strings. An unsupported map destination returns an error.
+- Gzip negotiates the request's encoding preferences, passes through bodies that already carry a content encoding, and observes flush and length semantics.
+- Informational HTTP responses can precede a final status. Flushing commits the response. Both built-in error handlers discard the previous body's encoding, length and disposition headers. Custom error handlers own their replacement body's headers.
+
 ## v5.4.6 - 2026-11-14
 
 **Security**

@@ -5,11 +5,15 @@ package echo
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httptrace"
+	"net/textproto"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestResponse(t *testing.T) {
@@ -420,4 +424,169 @@ func TestWrapHeadHandler_RouteLevelMiddlewareSeesTrueCommitted(t *testing.T) {
 
 	assert.NoError(t, wrapped(c))
 	assert.True(t, committedAfterHandler)
+}
+
+func TestResponse_Flush_CommitsResponse(t *testing.T) {
+	e := New()
+	rec := httptest.NewRecorder()
+	res := NewResponse(rec, e.Logger)
+	beforeCalled := false
+	res.Before(func() {
+		beforeCalled = true
+		res.Header().Set("X-Before", "1")
+	})
+
+	res.Flush()
+
+	assert.True(t, res.Committed)
+	assert.True(t, beforeCalled)
+	assert.Equal(t, http.StatusOK, res.Status)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "1", rec.Header().Get("X-Before"))
+	assert.True(t, rec.Flushed)
+}
+
+func TestResponse_Flush_ErrorHandlerSkipsCommittedResponse(t *testing.T) {
+	e := New()
+	e.GET("/", func(c *Context) error {
+		if err := http.NewResponseController(c.Response()).Flush(); err != nil {
+			return err
+		}
+		return ErrBadRequest
+	})
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Empty(t, rec.Body.String())
+}
+
+func TestResponse_WriteHeader_Informational(t *testing.T) {
+	e := New()
+	e.GET("/", func(c *Context) error {
+		c.Response().Header().Set("Link", "</style.css>; rel=preload; as=style")
+		c.Response().WriteHeader(http.StatusEarlyHints)
+		r, err := UnwrapResponse(c.Response())
+		if err != nil {
+			return err
+		}
+		assert.False(t, r.Committed)
+		err = c.String(http.StatusCreated, "ok")
+		assert.Equal(t, http.StatusCreated, r.Status)
+		return err
+	})
+
+	var informational []int
+	trace := &httptrace.ClientTrace{
+		Got1xxResponse: func(code int, _ textproto.MIMEHeader) error {
+			informational = append(informational, code)
+			return nil
+		},
+	}
+	srv := httptest.NewTestServer(t, e)
+	client := srv.Client()
+	req, err := http.NewRequestWithContext(httptrace.WithClientTrace(t.Context(), trace), http.MethodGet, srv.URL, nil)
+	require.NoError(t, err)
+	res, err := client.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+
+	assert.Equal(t, []int{http.StatusEarlyHints}, informational)
+	assert.Equal(t, http.StatusCreated, res.StatusCode)
+	assert.Equal(t, "ok", string(body))
+}
+
+func TestResponse_SwitchingProtocolsCommitsAfterInformationalResponses(t *testing.T) {
+	res := NewResponse(httptest.NewRecorder(), New().Logger)
+	before := 0
+	res.Before(func() { before++ })
+	res.WriteHeader(http.StatusProcessing)
+	res.WriteHeader(http.StatusEarlyHints)
+	assert.Zero(t, before)
+	assert.False(t, res.Committed)
+
+	res.WriteHeader(http.StatusSwitchingProtocols)
+	assert.Equal(t, 1, before)
+	assert.True(t, res.Committed)
+	assert.Equal(t, http.StatusSwitchingProtocols, res.Status)
+}
+
+func TestResponse_Flush_PanicsBeforeCommit(t *testing.T) {
+	e := New()
+	res := NewResponse(new(testResponseWriter), e.Logger)
+	beforeCalled := false
+	res.Before(func() { beforeCalled = true })
+
+	assert.Panics(t, func() { res.Flush() })
+	assert.False(t, res.Committed)
+	assert.False(t, beforeCalled)
+}
+
+func TestHeadResponseWriter_WriteHeader_Informational(t *testing.T) {
+	e := New()
+	rec := httptest.NewRecorder()
+	res := NewResponse(rec, e.Logger)
+	w := &headResponseWriter{rw: res}
+
+	w.WriteHeader(http.StatusEarlyHints)
+	assert.False(t, w.wroteStatus)
+	assert.False(t, res.Committed)
+
+	w.WriteHeader(http.StatusCreated)
+	_, _ = w.Write([]byte("ok"))
+	w.commit()
+
+	assert.Equal(t, http.StatusCreated, res.Status)
+	assert.Equal(t, "2", rec.Header().Get(HeaderContentLength))
+}
+
+func TestDelayedStatusWriter_Flush_SendsDelayedStatus(t *testing.T) {
+	e := New()
+	rec := httptest.NewRecorder()
+	res := NewResponse(rec, e.Logger)
+	w := &delayedStatusWriter{ResponseWriter: res, status: http.StatusCreated}
+
+	w.WriteHeader(http.StatusEarlyHints)
+	assert.False(t, w.committed)
+	w.Flush()
+	_, _ = w.Write([]byte("ok"))
+
+	// httptest.ResponseRecorder keeps the first status it sees, including 1xx, so check Response.
+	assert.Equal(t, http.StatusCreated, res.Status)
+	assert.True(t, res.Committed)
+	assert.True(t, rec.Flushed)
+}
+
+func TestDelayedStatusWriter_Flush_PanicsBeforeCommit(t *testing.T) {
+	e := New()
+	res := NewResponse(new(testResponseWriter), e.Logger)
+	w := &delayedStatusWriter{ResponseWriter: res, status: http.StatusCreated}
+
+	outer := &delayedStatusWriter{ResponseWriter: w, status: http.StatusAccepted}
+	assert.Panics(t, outer.Flush)
+	assert.False(t, outer.committed)
+	assert.False(t, w.committed)
+	assert.False(t, res.Committed)
+}
+
+type flushingWrapper struct {
+	http.ResponseWriter
+	flushed bool
+}
+
+func (w *flushingWrapper) Flush() { w.flushed = true }
+
+func (w *flushingWrapper) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+func TestResponse_Flush_UsesWrapperFlush(t *testing.T) {
+	e := New()
+	w := &flushingWrapper{ResponseWriter: new(testResponseWriter)}
+	res := NewResponse(w, e.Logger)
+
+	assert.NotPanics(t, func() { res.Flush() })
+	assert.True(t, w.flushed)
+	assert.True(t, res.Committed)
 }
