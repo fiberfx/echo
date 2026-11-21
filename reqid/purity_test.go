@@ -13,8 +13,8 @@ import (
 	"testing"
 )
 
-// allowed is empty: reqid imports nothing, and writes its hex by hand.
-var allowed = map[string]bool{}
+// allowed holds context alone, for NewContext and FromContext: reqid writes its hex by hand.
+var allowed = map[string]bool{"context": true}
 
 func checkImports(filename string, src any) error {
 	f, err := parser.ParseFile(token.NewFileSet(), filename, src, parser.ImportsOnly)
