@@ -1,0 +1,54 @@
+# MX Echo's mx.yml, 21 Nov 2026: the framework's checks and its reference service as MX jobs. What runs today and what waits:
+#
+# - Read by today's engine (fiberfx/mx-exec/src/config.rs:10-15, plan.rs:13-18): `mx.version`, `jobs.NAME.argv` and
+#   `.env`, and `workflows.NAME.steps` with `id`, `job` and `needs`. Every job's cwd is this directory. `mx run --list`
+#   and `mx run --plan TARGET` read this file and start nothing. Nothing else is in it: no `fv:` block, no `tasks:`.
+# - The Makefile stays the contributor's entry point. Each job is one of its targets by argv, and `make check` is the
+#   workflow `check` (lint, then vet, then race, each after the one before succeeded, as make runs them). `tidy` is
+#   CLAUDE.md's manifest check; `lint` needs golangci-lint on PATH (`make init` installs it), else the unit exits 127.
+# - The Go jobs and `lint` do not run under today's engine: a job starts with a cleared environment, its `env` and PATH
+#   only (fiberfx/mx-exec/src/attempt.rs:7-8, :388), so go finds no HOME and hence no module or build cache ("go: module
+#   cache not found: neither GOMODCACHE nor GOPATH is set", mercury/apps/fibervisor/mx.yml, row run 20261121T060651Z).
+#   Go refuses a relative cache path, and no path of one machine belongs here. They wait on environment inheritance:
+#   A4.3 `env_inherit` (specs/mx-exec/stories/mx-exec.4.aus.md:60, proposed) and SDMR 3 of
+#   kan/plans/squads/mx-box/supervision/taskfile/brief.md:209 (open). With it, add `env_inherit: true` to each Go job.
+# - The reference service (examples/reference): `reference-build` writes reference.out (ignored by .gitignore's *.out),
+#   `reference-serve` serves it on 127.0.0.1:8080, the workflow `reference` is the two in order, and `reference-probe` asks
+#   GET /api/healthz once with curl, which needs no HOME, so it runs today as written. Under mx a running job is stopped
+#   with SIGTERM and SIGKILL after 500 ms (attempt.rs:64), shorter than the service's 3 s drain, so a stop with a request
+#   still running is a kill. A service lifetime, readiness on /api/healthz and a stop grace of 4 s are designed, not
+#   built: specs/mx/design/mx-exec.design.md:221, :227, :444 (mx-exec.4). Supervising it with `fv up` waits on fv
+#   reading `fv.services` (RUL-738, not landed on ecd/kan); its row would be
+#   `reference-serve: {ready: {http: "http://127.0.0.1:8080/api/healthz", within: 30s}, grace: 4s}`.
+mx:
+  version: 1
+jobs:
+  lint:
+    argv: [golangci-lint, run, ./...]
+  vet:
+    argv: [go, vet, ./...]
+  test:
+    argv: [go, test, -short, ./...]
+  race:
+    argv: [go, test, -race, ./...]
+  bench:
+    argv: [go, test, "-run=^$", -bench=., -benchmem, ./...]
+  tidy:
+    argv: [go, mod, tidy, -diff]
+    env: {GOWORK: "off"}
+  reference-build:
+    argv: [go, build, -o, reference.out, ./examples/reference]
+  reference-serve:
+    argv: [./reference.out, --addr, "127.0.0.1:8080"]
+  reference-probe:
+    argv: [curl, -fsS, "http://127.0.0.1:8080/api/healthz"]
+workflows:
+  check:
+    steps:
+      - {id: lint, job: lint}
+      - {id: vet, job: vet, needs: [lint]}
+      - {id: race, job: race, needs: [vet]}
+  reference:
+    steps:
+      - {id: build, job: reference-build}
+      - {id: serve, job: reference-serve, needs: [build]}
