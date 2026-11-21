@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/fiberfx/mx-echo/v6/observe"
 )
 
 // nopResponseWriter is a no-op http.ResponseWriter used to isolate framework
@@ -46,6 +48,27 @@ func BenchmarkServeHTTP_Param(b *testing.B) {
 	e.GET("/users/:id/books/:bid", func(c *Context) error { return c.NoContent(http.StatusOK) })
 	req := httptest.NewRequest(http.MethodGet, "/users/42/books/7", nil)
 	benchServe(b, e, req)
+}
+
+// benchObserved is the request of BenchmarkServeHTTP_Static or _Param with Config.Observer on and a sink that
+// keeps nothing, so that the difference between the two is the observer's cost per request.
+func benchObserved(b *testing.B, route, path string) {
+	b.Helper()
+	sink := &countingSink{}
+	e := NewWithConfig(Config{Observer: observe.Observer{Sink: sink}})
+	e.GET(route, func(c *Context) error { return c.NoContent(http.StatusOK) })
+	benchServe(b, e, httptest.NewRequest(http.MethodGet, path, nil))
+	if sink.calls != b.N {
+		b.Fatalf("the sink received %d observations for %d requests", sink.calls, b.N)
+	}
+}
+
+func BenchmarkServeHTTP_ObservedStatic(b *testing.B) {
+	benchObserved(b, "/users/profile", "/users/profile")
+}
+
+func BenchmarkServeHTTP_ObservedParam(b *testing.B) {
+	benchObserved(b, "/users/:id/books/:bid", "/users/42/books/7")
 }
 
 // Exercises the global middleware chain (finding #1). Five pass-through middlewares.
