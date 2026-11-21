@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"syscall"
+	"time"
 
 	"github.com/fiberfx/mx-echo/v6/observe"
 )
@@ -20,6 +21,8 @@ type Supervision struct {
 	// AttemptNode is the attempt's node id, the span of the TRACEPARENT fv wrote. Only Read gives a value fv
 	// derived; the field holds whatever a caller sets.
 	AttemptNode string
+
+	grace time.Duration // FV_GRACE_MS as Read found it, 0 when fv did not set it; Grace returns it
 }
 
 // Read returns the attempt fv runs the service in, and true, when TRACEPARENT, FV_PATH and FV_TRACE describe one
@@ -34,6 +37,7 @@ func Read() (Supervision, bool) {
 		return Supervision{}, false
 	}
 	s.AttemptNode = traceparent[spanStart:spanEnd]
+	s.grace = graceOf(os.Getenv("FV_GRACE_MS"))
 	return s, true
 }
 
