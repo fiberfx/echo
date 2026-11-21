@@ -3,7 +3,7 @@
 
 // Package reqid holds a request's name as a value, and an incoming traceparent as a link beside it.
 //
-// The package is pure: it imports nothing and reads neither a clock nor a random source.
+// The package is pure: it imports only context, for NewContext and FromContext, and reads neither a clock nor a random source.
 // Whoever names a request gives New the time and the random number.
 package reqid
 
