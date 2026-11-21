@@ -1,5 +1,11 @@
 # Changelog
 
+## MX Echo v6.7.0
+
+- `reqid` gains the branded-id contract and the COR value, a correlation id that can cross processes. `EncodeBranded`, `DecodeBranded` (with a named class for each refusal), `BrandedUnixMilli` and `NodeFrom` read and write branded ids; `NewMinter` returns a `Minter` whose clock the caller injects, and `Minter.Correlation` mints a `Correlation`. `ParseCorrelation`, `NewCorrelation` and `CorrelationOf` (from W3C Baggage or the `X-Correlation-ID` header) read one, and four constants name its carriers. `reqid` still imports only the standard library and reads no clock. Not yet checked: that `msh id parse` decodes a minted COR to the same time, node and sequence.
+- `fibervisor.LinesOf` now writes `trace` and `attempt_node` for every `Supervision` but the zero one, as `none` when a hand-built value is not in fv's shape, never as an empty string. For the zero `Supervision`, which `Read` returns when fv does not hold the process, it still writes exactly what `Lines` writes. Tests now hold that the package calls no `os.Exit`, `signal.Notify`, `signal.NotifyContext` or `log.Fatal*`, and that a `LinesOf` line allocates no more than a `Lines` line.
+- Two internal packages prepare an MCP endpoint: JSON-RPC 2.0 framing, and MCP's protocol decisions as pure functions. There is no public MCP API yet: no public package uses them, and the root package and the middleware are unchanged. They add no require, by the Operator's "No new require for mcp": `go.mod` and `go.sum` are the same as in v6.5.0.
+
 ## MX Echo v6.6.2
 
 - The reflection engine of request binding moved from the root package into an internal package, where it is tested on its own. `Binder`, `DefaultBinder`, the `Bind*` functions and methods, and every error text are unchanged: the engine's error texts, a golden test through `ServeHTTP` and an allocation guard, all measured on v6.5.0 before the move, hold.

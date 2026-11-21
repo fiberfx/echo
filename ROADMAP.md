@@ -1,5 +1,9 @@
 # MX Echo roadmap
 
+## v6.7.0
+
+A request's identity can cross processes. [reqid](reqid/) mints and reads the COR value, a branded id holding a time, a node and a sequence, beside the request's own name. Two internal packages prepare an MCP endpoint; neither is in the request path yet.
+
 ## v6.6.2
 
 A second patch that a service does not see. The reflection engine of binding lives in one internal package with its own tests, and `bind.go` goes from 592 to 166 lines.
