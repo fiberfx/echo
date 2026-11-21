@@ -1,5 +1,10 @@
 # Changelog
 
+## MX Echo v6.6.2
+
+- The reflection engine of request binding moved from the root package into an internal package, where it is tested on its own. `Binder`, `DefaultBinder`, the `Bind*` functions and methods, and every error text are unchanged: the engine's error texts, a golden test through `ServeHTTP` and an allocation guard, all measured on v6.5.0 before the move, hold.
+- No API change: every exported identifier of v6.6.1 is present with the same type, and nothing was added or moved.
+
 ## MX Echo v6.6.1
 
 - The bodies of the client IP and scheme extractors moved from the root package into an internal package, where they are tested on their own. `ExtractIPDirect`, `ExtractIPFromRealIPHeader`, `ExtractIPFromXFFHeader`, `LegacyIPExtractor`, `ExtractSchemeDirect`, `ExtractSchemeFromHeaders`, `LegacySchemeExtractor`, the `Trust*` options and their types are unchanged and behave as before: a golden test through `ServeHTTP` and an allocation guard, both measured on v6.5.0 before the move, hold.

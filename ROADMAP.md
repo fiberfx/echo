@@ -1,5 +1,9 @@
 # MX Echo roadmap
 
+## v6.6.2
+
+A second patch that a service does not see. The reflection engine of binding lives in one internal package with its own tests, and `bind.go` goes from 592 to 166 lines.
+
 ## v6.6.1
 
 A patch that a service does not see. The client IP and scheme extraction lives in one internal package with its own tests, and the root package is about 150 lines smaller.
