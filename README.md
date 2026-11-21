@@ -4,7 +4,7 @@ MX Echo is a Go HTTP framework derived from LabStack Echo v5.4.6 with the v5.4.7
 
 ## Open the workspace
 
-Open the directory containing [go.mod](go.mod) in GoLand or another Go editor. Run Go commands from that directory. v6.2.0 adds four standalone packages. They share the framework’s module and version.
+Open the directory containing [go.mod](go.mod) in GoLand or another Go editor. Run Go commands from that directory. Six standalone packages were added in v6.2.0 and v6.3.0. They share the framework’s module and version.
 
 | Import | Responsibility |
 | --- | --- |
@@ -13,6 +13,8 @@ Open the directory containing [go.mod](go.mod) in GoLand or another Go editor. R
 | `github.com/fiberfx/mx-echo/v6/server` | Serve any `http.Handler` with a caller-owned cancellation context, listener and shutdown policy |
 | `github.com/fiberfx/mx-echo/v6/route/pattern` | Read a route pattern into its static, parameter and wildcard parts with pure functions |
 | `github.com/fiberfx/mx-echo/v6/outcome` | Classify how a request ended and decide the status of an error response with pure functions |
+| `github.com/fiberfx/mx-echo/v6/reqid` | Name a request with a small value ordered by time, and parse an incoming `traceparent` |
+| `github.com/fiberfx/mx-echo/v6/observe` | Describe one finished request as a value, write it as JSON and hand it to a sink |
 | `github.com/fiberfx/mx-echo/v6/middleware` | HTTP middleware, including request logging, recovery and compression |
 | `github.com/fiberfx/mx-echo/v6/echotest` | Request contexts, response recorders and fixtures for handler tests |
 
@@ -28,7 +30,7 @@ The `go` directive sets the minimum supported toolchain. To repeat the contribut
 
 ## Use v6 from an application
 
-To install v6.2.0 in an application module, run `go get github.com/fiberfx/mx-echo/v6@v6.2.0`.
+To install v6.3.0 in an application module, run `go get github.com/fiberfx/mx-echo/v6@v6.3.0`.
 
 While developing MX Echo and an application together, put their checkouts under a common parent. For an application module in `myapp`, run the following from the parent directory. If a workspace already exists there, use `go work use ./mx-echo ./myapp` to add the modules.
 

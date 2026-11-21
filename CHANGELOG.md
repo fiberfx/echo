@@ -1,5 +1,12 @@
 # Changelog
 
+## MX Echo v6.3.0
+
+- Added `Config.Observer`. With a sink set, every request is named before the first middleware and the sink receives one `observe.Observation` after the error handler ran: the name, an incoming `traceparent` kept as a link, the method, where routing ended, the registered pattern, the matched route's name, how the request ended and the status as written. `Context.RequestID` returns the name. With no sink the request path is the one of v6.1.0, and a routed request allocates nothing more.
+- Added `reqid`, a request's name as a 10-byte value ordered by time, with a strict parser of `traceparent`, and `observe`, the observation, its JSON form and the sink interface. Both are pure. An observation is the service's own report and is written where the service chooses.
+- With an observer set, `middleware.RequestID` and the request logger's `LogRequestID` use the request's name and ignore an incoming `X-Request-Id`, and a route registered with an empty name takes the name `Routes` already reports for it, `METHOD:PATH`, so `Context.RouteInfo().Name` is no longer empty for it. Without an observer all three behave as before.
+- Limits of the observation. A refusal by a `Use`, group or route middleware on a matched route is reported as that route's. A panic recovered by `middleware.Recover` is a `worker-failure` with `Panicked` false. An `OPTIONS` request the router answers itself is `method-not-allowed` with its 204. A hijacked connection reports the status the response last held. A route added through `Router()` directly is reported by the name it has.
+
 ## MX Echo v6.2.0
 
 - Added `bind` for standalone typed value conversion and `server` for the lifecycle of an `http.Handler`. Both packages use the Go standard library.
