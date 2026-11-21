@@ -80,10 +80,10 @@ func serve(addr string) int {
 // before the first request: an observation states the attempt the process started in, whatever the environment
 // says later. Not under fv, the supervision is zero: the attempt is none and the lines carry no trace or node.
 func run(ctx context.Context, addr string, stdout, stderr io.Writer) int {
-	s, _ := fibervisor.Read()
+	sup, _ := fibervisor.Read()
 	h := stdhttp.Wrap(newService(), observe.Observer{
-		Sink:    fibervisor.LinesOf(stderr, s),
-		Attempt: s.Path,
+		Sink:    fibervisor.LinesOf(stderr, sup),
+		Attempt: sup.Path,
 		Build:   fibervisor.Build(),
 	})
 	logger := slog.New(slog.NewJSONHandler(stdout, nil))

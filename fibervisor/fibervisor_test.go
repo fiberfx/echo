@@ -150,6 +150,10 @@ func TestAttempt(t *testing.T) {
 			if err := checkAttempt(tt.env, tt.shown, fibervisor.Attempt()); err != nil {
 				t.Error(err)
 			}
+			s, ok := fibervisor.Read()
+			if err := checkAgree(s, ok, fibervisor.Attempt()); err != nil {
+				t.Error(err)
+			}
 		})
 	}
 }

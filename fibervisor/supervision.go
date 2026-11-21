@@ -14,9 +14,12 @@ import (
 // AttemptNode, fv's node id of the attempt as 16 lowercase hex digits, the value `fv show` and `fv stop` accept.
 // Only Read derives it: a Supervision built by hand carries no such guarantee.
 type Supervision struct {
-	Trace       string // the trace fv runs the attempt in, 32 lowercase hex digits
-	Path        string // the attempt's path, the value Attempt returns
-	AttemptNode string // the attempt's node id, the span of the TRACEPARENT fv wrote
+	Trace string // the trace fv runs the attempt in, 32 lowercase hex digits
+	Path  string // the attempt's path, the value Attempt returns
+
+	// AttemptNode is the attempt's node id, the span of the TRACEPARENT fv wrote. Only Read gives a value fv
+	// derived; the field holds whatever a caller sets.
+	AttemptNode string
 }
 
 // Read returns the attempt fv runs the service in, and true, when TRACEPARENT, FV_PATH and FV_TRACE describe one
@@ -35,20 +38,29 @@ func Read() (Supervision, bool) {
 }
 
 // LinesOf returns the sink Lines returns, with two keys spliced into each line before its closing brace: "trace",
-// s.Trace, and "attempt_node", s.AttemptNode, so that `fv show` can be run from any line. It writes them only when
-// s.Trace is 32 and s.AttemptNode 16 lowercase hex digits, the shapes fv writes, so neither value needs escaping.
-// For any other s, the zero Supervision among them, it writes exactly what Lines writes.
+// s.Trace, and "attempt_node", s.AttemptNode, so that `fv show` can be run from any line. A value that is not the
+// shape fv writes, 32 lowercase hex digits for the trace and 16 for the node, is written "none", never "", so no
+// value needs escaping. For the zero Supervision, what Read gives a service that fv does not hold, it writes
+// exactly what Lines writes. It builds the keys once: a line costs what a line of Lines costs.
 func LinesOf(w io.Writer, s Supervision) observe.Sink {
-	if !isHex(s.Trace, traceEnd-traceStart) || !isHex(s.AttemptNode, spanEnd-spanStart) {
+	if s == (Supervision{}) {
 		return Lines(w)
 	}
 	tail := make([]byte, 0, 64)
 	tail = append(tail, `,"trace":"`...)
-	tail = append(tail, s.Trace...)
+	tail = append(tail, hexOrNone(s.Trace, traceEnd-traceStart)...)
 	tail = append(tail, `","attempt_node":"`...)
-	tail = append(tail, s.AttemptNode...)
+	tail = append(tail, hexOrNone(s.AttemptNode, spanEnd-spanStart)...)
 	tail = append(tail, `"}`...)
 	return &lines{w: w, tail: tail}
+}
+
+// hexOrNone returns s when it is n lowercase hex digits, else observe.None.
+func hexOrNone(s string, n int) string {
+	if !isHex(s, n) {
+		return observe.None
+	}
+	return s
 }
 
 // StopSignals returns the signals fv stops a leaf with: SIGTERM, which `fv stop` sends, and SIGINT (os.Interrupt),

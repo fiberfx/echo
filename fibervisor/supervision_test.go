@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"slices"
 	"strings"
@@ -19,6 +20,9 @@ import (
 
 // fvAttemptNode is the node id fv's id.rs pins for fvOtherTrace and fvAttempt (TestAttempt holds derive to it).
 const fvAttemptNode = "fd578c945e0aac89"
+
+// fvAttemptRequest is the path of a call made from fvAttempt: a request's path, whose node is not the attempt's.
+const fvAttemptRequest = fvAttempt + "/q00000000000200000007"
 
 // fvOwn is the attempt of fv's own vector, as Read owes it.
 var fvOwn = fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt, AttemptNode: fvAttemptNode}
@@ -37,6 +41,18 @@ func checkRead(want, s fibervisor.Supervision, ok bool) error {
 	}
 	if ok && (s.Trace == "" || s.Path == "" || s.AttemptNode == "") {
 		return fmt.Errorf("Read() = %+v, true: an empty field passed off as fv's", s)
+	}
+	return nil
+}
+
+// checkAgree returns an error unless attempt, what Attempt returned, is s.Path when Read reported ok, else none.
+func checkAgree(s fibervisor.Supervision, ok bool, attempt string) error {
+	want := observe.None
+	if ok {
+		want = s.Path
+	}
+	if attempt != want {
+		return fmt.Errorf("Attempt() = %q, and Read() = %+v, %v", attempt, s, ok)
 	}
 	return nil
 }
@@ -64,6 +80,7 @@ func TestRead(t *testing.T) {
 		{"a run's path, with its own span", leaf(fvTrace, fvRequest+"/run"), fibervisor.Supervision{}},
 		{"a request's path, with fv's own vector", env{header(fvTrace, "49c98335cd3dc4ef"), fvRequest, fvTrace}, fibervisor.Supervision{}},
 		{"a sibling attempt's span", env{header(fvTrace, derive(fvTrace, fvRequest+"/run/a2")), fvAttempt, fvTrace}, fibervisor.Supervision{}},
+		{"fv's attempt with its request's node", env{header(fvOtherTrace, derive(fvOtherTrace, fvAttemptRequest)), fvAttempt, fvOtherTrace}, fibervisor.Supervision{}},
 		// Values whose JSON would need escaping never reach a Supervision: the path is not an attempt's, and the
 		// trace is not TRACEPARENT's, which holds hex only.
 		{"an FV_PATH with a quote and a newline", leaf(fvTrace, fvAttempt+"\"\n"), fibervisor.Supervision{}},
@@ -97,9 +114,24 @@ func TestReadViolation(t *testing.T) {
 		{"a value returned with false", fibervisor.Supervision{}, fvOwn, false},
 		{"a shown attempt with no node", fvOwn, fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt}, true},
 		{"a shown attempt with another trace's node", fvOwn, attemptOf(fvTrace, fvAttempt), true},
+		{"fv's attempt with its request's node", fvOwn, fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt, AttemptNode: derive(fvOtherTrace, fvAttemptRequest)}, true},
 		{"a shown attempt reported as not shown", fvOwn, fibervisor.Supervision{}, false},
 	} {
 		if checkRead(bad.want, bad.got, bad.ok) == nil {
+			t.Errorf("%s passed the check", bad.name)
+		}
+	}
+	for _, bad := range []struct {
+		name    string
+		s       fibervisor.Supervision
+		ok      bool
+		attempt string
+	}{
+		{"none from Attempt where Read shows the attempt", fvOwn, true, observe.None},
+		{"a path from Attempt where Read shows none", fibervisor.Supervision{}, false, fvAttempt},
+		{"another attempt's path", fvOwn, true, fvRequest + "/run/a2"},
+	} {
+		if checkAgree(bad.s, bad.ok, bad.attempt) == nil {
 			t.Errorf("%s passed the check", bad.name)
 		}
 	}
@@ -177,26 +209,25 @@ func TestLinesOf(t *testing.T) {
 		if want := followed(plain[i], s); string(of[i]) != want {
 			t.Errorf("write %d = %q, want %q", i+1, of[i], want)
 		}
+		// Up to "panicked" and its value, the line is Lines' own, byte for byte.
+		if head := plain[i][:len(plain[i])-2]; !bytes.HasPrefix(of[i], head) {
+			t.Errorf("write %d = %q, which does not begin with Lines' line %q", i+1, of[i], head)
+		}
 	}
 }
 
 func TestLinesOfNotSupervised(t *testing.T) {
 	env{}.set(t)
-	read, _ := fibervisor.Read()
+	read, ok := fibervisor.Read()
+	if ok {
+		t.Fatalf("Read() = %+v, true with no fv variables", read)
+	}
 	for _, tt := range []struct {
 		name string
 		s    fibervisor.Supervision
 	}{
 		{"the zero Supervision", fibervisor.Supervision{}},
 		{"Read with no fv variables", read},
-		{"no node", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt}},
-		{"no trace", fibervisor.Supervision{Path: fvAttempt, AttemptNode: fvAttemptNode}},
-		// Built by hand, values that would end the line or add a key if written: they are not written.
-		{"a trace that would end the line", fibervisor.Supervision{Trace: `x"}` + "\n" + `{"id":"forged`, Path: fvAttempt, AttemptNode: fvAttemptNode}},
-		{"a node that would add a key", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt, AttemptNode: `x","attempt":"forged`}},
-		{"an uppercase node", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt, AttemptNode: strings.ToUpper(fvAttemptNode)}},
-		{"a node of 15 digits", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt, AttemptNode: fvAttemptNode[:15]}},
-		{"a trace of 33 digits", fibervisor.Supervision{Trace: fvOtherTrace + "0", Path: fvAttempt, AttemptNode: fvAttemptNode}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			of, plain := sinkPair(tt.s, observations)
@@ -207,8 +238,41 @@ func TestLinesOfNotSupervised(t *testing.T) {
 				if !bytes.Equal(of[i], plain[i]) {
 					t.Errorf("write %d = %q, and Lines writes %q", i+1, of[i], plain[i])
 				}
-				if err := checkLines(of[i], 1); err != nil {
-					t.Errorf("write %d is not one whole line: %v", i+1, err)
+			}
+		})
+	}
+}
+
+func TestLinesOfHandBuilt(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		s           fibervisor.Supervision
+		trace, node string // what the line owes for each key
+	}{
+		{"a path alone", fibervisor.Supervision{Path: fvAttempt}, observe.None, observe.None},
+		{"no node", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt}, fvOtherTrace, observe.None},
+		{"no trace", fibervisor.Supervision{Path: fvAttempt, AttemptNode: fvAttemptNode}, observe.None, fvAttemptNode},
+		// Values that would end the line or add a key if written as they are: they are written none.
+		{"a trace that would end the line", fibervisor.Supervision{Trace: `x"}` + "\n" + `{"id":"forged`, Path: fvAttempt, AttemptNode: fvAttemptNode}, observe.None, fvAttemptNode},
+		{"a node that would add a key", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt, AttemptNode: `x","attempt":"forged`}, fvOtherTrace, observe.None},
+		{"an uppercase node", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt, AttemptNode: strings.ToUpper(fvAttemptNode)}, fvOtherTrace, observe.None},
+		{"a node of 15 digits", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt, AttemptNode: fvAttemptNode[:15]}, fvOtherTrace, observe.None},
+		{"a trace of 33 digits", fibervisor.Supervision{Trace: fvOtherTrace + "0", Path: fvAttempt, AttemptNode: fvAttemptNode}, observe.None, fvAttemptNode},
+		// The shapes are checked, not the derivation: only Read gives a node fv derived.
+		{"a request's node set by hand", fibervisor.Supervision{Trace: fvOtherTrace, Path: fvAttempt, AttemptNode: derive(fvOtherTrace, fvAttemptRequest)}, fvOtherTrace, derive(fvOtherTrace, fvAttemptRequest)},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			owed := fibervisor.Supervision{Trace: tt.trace, AttemptNode: tt.node}
+			of, plain := sinkPair(tt.s, observations)
+			if len(of) != len(observations) {
+				t.Fatalf("%d writes for %d observations", len(of), len(observations))
+			}
+			for i := range observations {
+				if err := checkFollowed(of[i], plain[i], owed); err != nil {
+					t.Errorf("write %d: %v", i+1, err)
+				}
+				if want := followed(plain[i], owed); string(of[i]) != want {
+					t.Errorf("write %d = %q, want %q", i+1, of[i], want)
 				}
 			}
 		})
@@ -234,6 +298,58 @@ func TestLinesOfViolation(t *testing.T) {
 		if checkFollowed([]byte(bad.line), plain, fvOwn) == nil {
 			t.Errorf("%s passed the check", bad.name)
 		}
+	}
+	// An absent node is written none, never "".
+	noNode := fibervisor.Supervision{Trace: fvOtherTrace, AttemptNode: observe.None}
+	if checkFollowed([]byte(followed(plain, fibervisor.Supervision{Trace: fvOtherTrace})), plain, noNode) == nil {
+		t.Error(`an absent node written "" passed the check`)
+	}
+}
+
+// checkNoAllocs returns an error unless sink, warm, writes the lines of observations with no allocation.
+func checkNoAllocs(sink observe.Sink) error {
+	n := testing.AllocsPerRun(100, func() {
+		for _, o := range observations {
+			sink.Observe(o)
+		}
+	})
+	if n != 0 {
+		return fmt.Errorf("%v allocations for %d lines when warm, want 0", n, len(observations))
+	}
+	return nil
+}
+
+// freshLines is a sink that builds each line in a new buffer: what LinesOf must not become.
+type freshLines struct{ w io.Writer }
+
+func (f freshLines) Observe(o observe.Observation) {
+	_, _ = f.w.Write(append(o.AppendJSON(nil), '\n'))
+}
+
+func TestLinesOfAllocs(t *testing.T) {
+	if raceEnabled {
+		t.Skip("the race detector changes allocation counts")
+	}
+	for _, tt := range []struct {
+		name string
+		sink observe.Sink
+	}{
+		{"Lines", fibervisor.Lines(io.Discard)},
+		{"LinesOf", fibervisor.LinesOf(io.Discard, fvOwn)},
+		{"LinesOf, a hand-built value", fibervisor.LinesOf(io.Discard, fibervisor.Supervision{Path: fvAttempt})},
+	} {
+		if err := checkNoAllocs(tt.sink); err != nil {
+			t.Errorf("%s: %v", tt.name, err)
+		}
+	}
+}
+
+func TestLinesOfAllocsViolation(t *testing.T) {
+	if raceEnabled {
+		t.Skip("the race detector changes allocation counts")
+	}
+	if checkNoAllocs(freshLines{io.Discard}) == nil {
+		t.Error("a sink that allocates each line passed the check")
 	}
 }
 
