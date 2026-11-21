@@ -2,6 +2,7 @@
 
 ## MX Echo v6.8.0
 
+- README rewritten; its Go examples are compiled by the test suite (`readme_example_test.go`).
 - Added `server.StopReport.ExitCode(err)`, the exit status of a server's `main`: 0 after a requested, drained stop; 2 after a requested, forced one; 1 otherwise (a failed start, a Serve that ended on its own, or the zero report `Start` leaves when `OnStop` is unset). It exits nothing. `examples/reference` uses it, with the same three statuses as before.
 - Added `reqid.(*Correlation).UnmarshalText`, so `encoding/json`, `flag.TextVar` and `log/slog` read back the text `MarshalText` writes. Empty text reads as the zero `Correlation`; other text that is not a COR leaves the value unchanged and returns an error.
 - Added four opt-in methods on `fibervisor.Supervision`. `RequestNode(id)` returns the node id fv would derive for a request under the attempt: derived, not recorded, so `fv show` refuses it. `Transport(next)` sends each outgoing request whose context names a request with a `traceparent` naming that node. `Env(base)` gives a child process the environment under which `fv run` records it as a child of the attempt, and `LinkEnv(base, id)` one under which fv records a new root in the same trace, linked to the request. Each returns a new value and changes nothing it is given. A nil base is `os.Environ()`, as with `os/exec`, so a variable already in this process's environment, `FV_CRASH` among them, reaches the child through a nil base; that matters only to fv's crash-point test build and is a known limit.
