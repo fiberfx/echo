@@ -1,5 +1,13 @@
 # Changelog
 
+## MX Echo v6.7.1
+
+- Behaviour restored: `fibervisor.LinesOf` again writes `trace` and `attempt_node` only when both values have fv's shapes, and otherwise exactly what `Lines` writes, as in v6.6.0. v6.7.0 wrote `none` for a hand-built `Supervision` such as `Supervision{Path: "local"}`; that change is undone, so the defaults stay bit for bit those of v6.6.0.
+- `reqid.CorrelationOf` percent-decodes the Baggage value, as W3C Baggage allows, so `bcs.correlation.id=%43OR…` names the same COR as its plain spelling. A malformed escape, or a value that does not decode to 14 bytes, is refused as before. It still allocates nothing.
+- Documentation: the zero `reqid.Minter` is not usable (use `NewMinter`).
+- Internal: a legacy MCP `initialize` is refused unless a legacy revision is served, and a narrow of served revisions with no known entry serves none; the JSON-RPC id's equality and the response kind are documented as they behave. No public MCP API yet, and no new require.
+- No API change: every exported identifier of v6.7.0 is present with the same type, and nothing was added or moved.
+
 ## MX Echo v6.7.0
 
 - `reqid` gains the branded-id contract and the COR value, a correlation id that can cross processes. `EncodeBranded`, `DecodeBranded` (with a named class for each refusal), `BrandedUnixMilli` and `NodeFrom` read and write branded ids; `NewMinter` returns a `Minter` whose clock the caller injects, and `Minter.Correlation` mints a `Correlation`. `ParseCorrelation`, `NewCorrelation` and `CorrelationOf` (from W3C Baggage or the `X-Correlation-ID` header) read one, and four constants name its carriers. `reqid` still imports only the standard library and reads no clock. Not yet checked: that `msh id parse` decodes a minted COR to the same time, node and sequence.

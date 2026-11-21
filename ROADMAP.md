@@ -1,5 +1,9 @@
 # MX Echo roadmap
 
+## v6.7.1
+
+A patch from the second train's review. `LinesOf` keeps v6.6.0's output for a hand-built supervision, a percent-encoded COR in Baggage is read, and the internal MCP rules refuse a legacy initialize no served revision can answer.
+
 ## v6.7.0
 
 A request's identity can cross processes. [reqid](reqid/) mints and reads the COR value, a branded id holding a time, a node and a sequence, beside the request's own name. Two internal packages prepare an MCP endpoint; neither is in the request path yet.
