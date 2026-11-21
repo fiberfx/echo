@@ -40,10 +40,15 @@ const (
 // Attempt returns FV_PATH when TRACEPARENT, FV_PATH and FV_TRACE describe one fv attempt, else observe.None.
 // It reads the environment when called: a service calls it once at start and keeps the value.
 //
-// The three describe one attempt when fv's own door would take a call made from this process as that attempt's
-// child, and FV_TRACE agrees: TRACEPARENT is a version 00 traceparent, FV_TRACE is its trace, FV_PATH is the path
-// of an attempt (it ends in a<n>), and TRACEPARENT's span is the id fv derives from that trace and that path. A
-// path that only looks like an attempt is not claimed: without the derived span nothing shows that fv wrote it.
+// The three describe one attempt when TRACEPARENT is a version 00 traceparent, FV_TRACE is its trace, FV_PATH is
+// the path of an attempt (it ends in a<n>), and TRACEPARENT's span is the id fv derives from that trace and that
+// path. A path that only looks like an attempt is not claimed: without the derived span nothing shows that fv
+// wrote it.
+//
+// The test is never laxer than fv's own door, which takes a call made from this process as that attempt's child
+// on the same path and span. It is stricter in two things, neither of which fv's own leaf can fail: FV_TRACE must
+// be TRACEPARENT's trace, where the door does not read FV_TRACE, and TRACEPARENT must be the 55 bytes fv writes,
+// where the door trims white space around it first.
 func Attempt() string {
 	path := os.Getenv("FV_PATH")
 	if !oneAttempt(os.Getenv("TRACEPARENT"), path, os.Getenv("FV_TRACE")) {
@@ -155,6 +160,12 @@ func Build() string {
 // The sink holds its own lock, so lines from concurrent requests do not interleave whatever w is. A sink has no
 // way to return an error, so a failed Write is dropped: that line is lost and the next is still written. w must
 // not be nil.
+//
+// The Write runs on the request's goroutine, under that lock: while w blocks, such as on a full pipe, every
+// request that ends waits behind it. Give Lines a writer that returns quickly. Standard error, where fv leaves a
+// leaf's output, is one only while whatever reads it keeps reading; a service that cannot rely on that gives a
+// writer that buffers and does not block, and that writer guards its own buffer, since the sink's lock covers
+// the Write alone.
 func Lines(w io.Writer) observe.Sink {
 	return &lines{w: w}
 }
