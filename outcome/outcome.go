@@ -11,7 +11,8 @@ import "errors"
 type Kind uint8
 
 const (
-	// Unknown means nothing is known; Classify returns it only for facts with no status.
+	// Unknown means nothing is known; Classify returns it only when there was no panic, the client had not
+	// gone, and the status it reads (ErrStatus, or Status when ErrStatus is 0) is below 100, none included.
 	Unknown Kind = iota
 	// OK means the request was answered below 400.
 	OK
