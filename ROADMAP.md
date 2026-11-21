@@ -1,5 +1,9 @@
 # MX Echo roadmap
 
+## v6.6.1
+
+A patch that a service does not see. The client IP and scheme extraction lives in one internal package with its own tests, and the root package is about 150 lines smaller.
+
 ## v6.6.0
 
 An observation line names its attempt the way fv's commands do. [fibervisor](fibervisor/) reads the attempt's trace, path and node id once, writes the trace and the node id into each line, and names the signals fv stops a leaf with; the [reference service](examples/reference/) uses all three. The root package still imports none of it, and a test now holds that for every package the root imports.

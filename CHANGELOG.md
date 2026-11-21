@@ -1,5 +1,10 @@
 # Changelog
 
+## MX Echo v6.6.1
+
+- The bodies of the client IP and scheme extractors moved from the root package into an internal package, where they are tested on their own. `ExtractIPDirect`, `ExtractIPFromRealIPHeader`, `ExtractIPFromXFFHeader`, `LegacyIPExtractor`, `ExtractSchemeDirect`, `ExtractSchemeFromHeaders`, `LegacySchemeExtractor`, the `Trust*` options and their types are unchanged and behave as before: a golden test through `ServeHTTP` and an allocation guard, both measured on v6.5.0 before the move, hold.
+- No API change: every exported identifier of v6.6.0 is present with the same type, and nothing was added or moved.
+
 ## MX Echo v6.6.0
 
 - Added `fibervisor.Read`, which returns the attempt fv runs the service in as a `Supervision`: the trace, the attempt's path and `AttemptNode`, fv's node id of the attempt, the value `fv show` and `fv stop` accept. It applies `Attempt`'s test once, and `Attempt` is unchanged.
