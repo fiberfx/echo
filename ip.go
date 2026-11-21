@@ -6,7 +6,8 @@ package echo
 import (
 	"net"
 	"net/http"
-	"strings"
+
+	"github.com/fiberfx/mx-echo/v6/internal/trust"
 )
 
 /**
@@ -133,12 +134,7 @@ Private IPv6 address ranges:
 
 */
 
-type ipChecker struct {
-	trustExtraRanges []*net.IPNet
-	trustLoopback    bool
-	trustLinkLocal   bool
-	trustPrivateNet  bool
-}
+type ipChecker struct{ checker trust.Checker }
 
 // TrustOption is config for which IP address to trust
 type TrustOption func(*ipChecker)
@@ -146,33 +142,33 @@ type TrustOption func(*ipChecker)
 // TrustLoopback configures if you trust loopback address (default: true).
 func TrustLoopback(v bool) TrustOption {
 	return func(c *ipChecker) {
-		c.trustLoopback = v
+		c.checker.Loopback = v
 	}
 }
 
 // TrustLinkLocal configures if you trust link-local address (default: true).
 func TrustLinkLocal(v bool) TrustOption {
 	return func(c *ipChecker) {
-		c.trustLinkLocal = v
+		c.checker.LinkLocal = v
 	}
 }
 
 // TrustPrivateNet configures if you trust private network address (default: true).
 func TrustPrivateNet(v bool) TrustOption {
 	return func(c *ipChecker) {
-		c.trustPrivateNet = v
+		c.checker.PrivateNet = v
 	}
 }
 
 // TrustIPRange add trustable IP ranges using CIDR notation.
 func TrustIPRange(ipRange *net.IPNet) TrustOption {
 	return func(c *ipChecker) {
-		c.trustExtraRanges = append(c.trustExtraRanges, ipRange)
+		c.checker.Ranges = append(c.checker.Ranges, ipRange)
 	}
 }
 
 func newIPChecker(configs []TrustOption) *ipChecker {
-	checker := &ipChecker{trustLoopback: true, trustLinkLocal: true, trustPrivateNet: true}
+	checker := &ipChecker{checker: trust.Default()}
 	for _, configure := range configs {
 		configure(checker)
 	}
@@ -180,21 +176,7 @@ func newIPChecker(configs []TrustOption) *ipChecker {
 }
 
 func (c *ipChecker) trust(ip net.IP) bool {
-	if c.trustLoopback && ip.IsLoopback() {
-		return true
-	}
-	if c.trustLinkLocal && ip.IsLinkLocalUnicast() {
-		return true
-	}
-	if c.trustPrivateNet && ip.IsPrivate() {
-		return true
-	}
-	for _, trustedRange := range c.trustExtraRanges {
-		if trustedRange.Contains(ip) {
-			return true
-		}
-	}
-	return false
+	return c.checker.Trusts(ip)
 }
 
 // IPExtractor is a function to extract IP addr from http.Request.
@@ -209,22 +191,7 @@ func ExtractIPDirect() IPExtractor {
 }
 
 func extractIP(req *http.Request) string {
-	host, _, err := net.SplitHostPort(req.RemoteAddr)
-	if err != nil {
-		host = req.RemoteAddr
-	}
-	host = stripIPv6Zone(host)
-	if err != nil && net.ParseIP(host) == nil {
-		return ""
-	}
-	return host
-}
-
-func stripIPv6Zone(host string) string {
-	if strings.Contains(host, ":") {
-		host, _, _ = strings.Cut(host, "%")
-	}
-	return host
+	return trust.DirectIP(req)
 }
 
 // ExtractIPFromRealIPHeader extracts IP address using `x-real-ip` header.
@@ -232,21 +199,7 @@ func stripIPv6Zone(host string) string {
 func ExtractIPFromRealIPHeader(options ...TrustOption) IPExtractor {
 	checker := newIPChecker(options)
 	return func(req *http.Request) string {
-		directIP := extractIP(req)
-		peerIP := net.ParseIP(directIP)
-		if peerIP == nil || !checker.trust(peerIP) {
-			return directIP
-		}
-
-		realIP := req.Header.Get(HeaderXRealIP)
-		if realIP != "" {
-			realIP = strings.TrimPrefix(realIP, "[")
-			realIP = strings.TrimSuffix(realIP, "]")
-			if ip := net.ParseIP(realIP); ip != nil {
-				return realIP
-			}
-		}
-		return directIP
+		return trust.FromRealIP(req, &checker.checker)
 	}
 }
 
@@ -256,27 +209,7 @@ func ExtractIPFromRealIPHeader(options ...TrustOption) IPExtractor {
 func ExtractIPFromXFFHeader(options ...TrustOption) IPExtractor {
 	checker := newIPChecker(options)
 	return func(req *http.Request) string {
-		directIP := extractIP(req)
-		xffs := req.Header[HeaderXForwardedFor]
-		if len(xffs) == 0 {
-			return directIP
-		}
-		ips := append(strings.Split(strings.Join(xffs, ","), ","), directIP)
-		for i := len(ips) - 1; i >= 0; i-- {
-			ips[i] = strings.TrimSpace(ips[i])
-			ips[i] = strings.TrimPrefix(ips[i], "[")
-			ips[i] = strings.TrimSuffix(ips[i], "]")
-			ip := net.ParseIP(ips[i])
-			if ip == nil {
-				// Unable to parse IP; cannot trust entire records
-				return directIP
-			}
-			if !checker.trust(ip) {
-				return ip.String()
-			}
-		}
-		// All of the IPs are trusted; return first element because it is furthest from server (best effort strategy).
-		return strings.TrimSpace(ips[0])
+		return trust.FromXFF(req, &checker.checker)
 	}
 }
 
@@ -304,19 +237,5 @@ func LegacyIPExtractor() IPExtractor {
 }
 
 func legacyIPExtractor(req *http.Request) string {
-	if ip := req.Header.Get(HeaderXForwardedFor); ip != "" {
-		i := strings.IndexAny(ip, ",")
-		if i > 0 {
-			ip = strings.TrimSpace(ip[:i])
-		}
-		ip = strings.TrimPrefix(ip, "[")
-		ip = strings.TrimSuffix(ip, "]")
-		return ip
-	}
-	if ip := req.Header.Get(HeaderXRealIP); ip != "" {
-		ip = strings.TrimPrefix(ip, "[")
-		ip = strings.TrimSuffix(ip, "]")
-		return ip
-	}
-	return extractIP(req)
+	return trust.Legacy(req)
 }
