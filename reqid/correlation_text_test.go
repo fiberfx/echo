@@ -16,10 +16,11 @@ import (
 var _ encoding.TextUnmarshaler = (*reqid.Correlation)(nil)
 
 // checkUnmarshalText reports the first case unmarshal gets wrong: every valid COR is read as ParseCorrelation reads
-// it, and every text that is not one returns an error and leaves the Correlation as it was.
+// it, empty text is read as the zero Correlation, and every other text that is not a COR returns an error and leaves
+// the Correlation as it was.
 func checkUnmarshalText(unmarshal func(*reqid.Correlation, []byte) error) error {
 	old, _ := reqid.ParseCorrelation("COR0SF1bsgvgpc")
-	for _, s := range []string{"COR0SCMa0vxXFZ", "COR00000000000", "CORAzL8n0Y58m7"} {
+	for _, s := range []string{"COR0SCMa0vxXFZ", "COR00000000000", "CORAzL8n0Y58m7", ""} {
 		c := old
 		want, _ := reqid.ParseCorrelation(s)
 		if err := unmarshal(&c, []byte(s)); err != nil || c != want {
@@ -27,7 +28,6 @@ func checkUnmarshalText(unmarshal func(*reqid.Correlation, []byte) error) error 
 		}
 	}
 	refused := []struct{ name, in string }{
-		{"empty, which ParseCorrelation reads as absent", ""},
 		{"13 bytes", "COR0000000000"},
 		{"a lowercase namespace", "cOR00000000000"},
 		{"brand USR", "USR0KHTOWnGLuC"},
@@ -68,6 +68,20 @@ func TestCorrelationUnmarshalTextViolation(t *testing.T) {
 			}
 			return nil
 		}},
+		{"empty text refused", func(c *reqid.Correlation, text []byte) error {
+			parsed, ok := reqid.ParseCorrelation(string(text))
+			if !ok {
+				return errors.New("not a COR")
+			}
+			*c = parsed
+			return nil
+		}},
+		{"empty text leaves c as it was", func(c *reqid.Correlation, text []byte) error {
+			if len(text) == 0 {
+				return nil
+			}
+			return c.UnmarshalText(text)
+		}},
 		{"good text leaves c as it was", func(_ *reqid.Correlation, text []byte) error {
 			if _, ok := reqid.ParseCorrelation(string(text)); !ok {
 				return errors.New("not a COR")
@@ -96,6 +110,15 @@ func TestCorrelationTextRoundTrip(t *testing.T) {
 	var out record
 	if err := json.Unmarshal(data, &out); err != nil || out != in {
 		t.Errorf("json.Unmarshal(%s) = (%+v, %v), want %+v", data, out, err, in)
+	}
+	var zero record
+	data, err = json.Marshal(zero)
+	if err != nil || string(data) != `{"correlation":""}` {
+		t.Fatalf("json.Marshal of the zero Correlation = (%s, %v), want an empty string", data, err)
+	}
+	back := in
+	if err := json.Unmarshal(data, &back); err != nil || back != zero {
+		t.Errorf("json.Unmarshal(%s) = (%+v, %v), want the zero Correlation", data, back, err)
 	}
 	kept := out
 	if err := json.Unmarshal([]byte(`{"correlation":"cOR0SCMa0vxXFZ"}`), &out); err == nil || out != kept {

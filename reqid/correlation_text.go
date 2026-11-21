@@ -3,8 +3,13 @@
 package reqid
 
 // UnmarshalText sets c to the COR in text by ParseCorrelation's rule, so encoding/json, flag.TextVar and log/slog
-// read a Correlation; text that is not a COR leaves c unchanged and returns an error.
+// read a Correlation; empty text sets the zero Correlation, as MarshalText writes it; other text that is not a COR
+// leaves c unchanged and returns an error.
 func (c *Correlation) UnmarshalText(text []byte) error {
+	if len(text) == 0 {
+		*c = Correlation{}
+		return nil
+	}
 	parsed, ok := ParseCorrelation(string(text))
 	if !ok {
 		return correlationTextError{}
