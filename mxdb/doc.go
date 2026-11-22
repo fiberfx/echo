@@ -42,14 +42,14 @@
 // the error is a *ProtocolError, which matches ErrProtocol and ErrRejected, and
 // the client closes that connection instead of pooling it.
 //
-// Retry on a stale connection: when a pooled connection fails before any byte
-// of the reply arrives (reset, closed by the server while idle, nothing
-// written), the client sends the request once more on a fresh connection, for
-// updates as for reads. A failure on that fresh connection, a failure after
-// the first reply byte, a timeout and a cancelled context are not retried:
-// an update is OutcomeUnknown. Because the first send may have reached the
-// server, a caller whose update is not idempotent should carry a precondition
-// (Absent, Holds) that makes a repeated execution Aborted.
+// Retry on a stale connection: an update is sent again on a fresh connection
+// only when a pooled connection fails while the request is being written (the
+// stale socket refuses the write), because then the server cannot have read a
+// complete frame. Once the whole frame was written, any failure before or
+// during the reply (reset, close, timeout, cancellation, a partial or
+// malformed reply) is OutcomeUnknown and is not retried: the server may have
+// committed. Reads are repeatable, so a failed read on a pooled connection is
+// retried once on a fresh one whatever the failure.
 //
 // Reads are Get, Snapshot and Scan. Scans continue "after K" (exclusive) and
 // carry the commit sequence they read at, so a caller pins the first page's At

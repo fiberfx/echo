@@ -391,34 +391,143 @@ func (f *fakeServer) updateCount() (n int) {
 	return n
 }
 
-// A pooled connection that is reset before any reply byte is replaced once,
-// for an update too; a second failure, or one on a fresh connection, is unknown.
-func TestUpdateRetriedOnceWhenPooledConnectionIsReset(t *testing.T) {
-	f := newFake(t)
-	c := newTestClient(t, f)
-	if err := c.Health(ctx(t)); err != nil { // leaves a pooled connection
-		t.Fatal(err)
-	}
-	f.with(func() { f.dropBefore = 1 })
-	res, err := c.Update(ctx(t), Update{Pre: []Cond{Absent("a", "k")}, Ops: []Op{Put("a", "k", []byte("v"))}})
-	if err != nil || res.Outcome != OutcomeOk || res.CommitSeq != 1 {
-		t.Fatalf("pooled connection reset: %v, %+v, want one retry on a fresh connection and Ok", err, res)
-	}
-	if n := f.updateCount(); n != 2 {
-		t.Fatalf("the server saw %d update frames, want 2 (the dropped one and the retry)", n)
-	}
+// flakyConn is a connection that lets okWrites writes through (-1: all), then
+// fails every Write after sending the first part bytes of it: a pooled socket
+// the server has already closed.
+type flakyConn struct {
+	net.Conn
+	mu       sync.Mutex
+	okWrites int
+	part     int
+}
 
-	// Violating: the retry is dropped too. One retry only; the outcome is unknown.
-	if err := c.Health(ctx(t)); err != nil {
-		t.Fatal(err)
+func (c *flakyConn) arm() {
+	c.mu.Lock()
+	c.okWrites = 0
+	c.mu.Unlock()
+}
+
+func (c *flakyConn) Write(p []byte) (int, error) {
+	c.mu.Lock()
+	ok := c.okWrites != 0
+	if c.okWrites > 0 {
+		c.okWrites--
 	}
-	f.with(func() { f.dropBefore = 2 })
-	res, err = c.Update(ctx(t), Update{Ops: []Op{Put("a", "j", []byte("v"))}})
-	if res.Outcome != OutcomeUnknown || !errors.Is(err, ErrOutcomeUnknown) {
-		t.Fatalf("reset twice: %v, %+v, want OutcomeUnknown", err, res)
+	part := c.part
+	c.mu.Unlock()
+	if ok {
+		return c.Conn.Write(p)
 	}
-	if n := f.updateCount(); n != 4 {
-		t.Fatalf("the server saw %d update frames, want 4: the second update was tried more than twice", n)
+	n := 0
+	if part > 0 {
+		n, _ = c.Conn.Write(p[:part])
+	}
+	return n, errors.New("write: broken pipe")
+}
+
+// flakyClient dials the fake; its first connection is sound until armed, and
+// every later one passes laterOK writes (the hello) and then fails.
+func flakyClient(t *testing.T, f *fakeServer, part, laterOK int) (*Client, func() []*flakyConn) {
+	t.Helper()
+	var mu sync.Mutex
+	var conns []*flakyConn
+	c := New(Config{Timeout: 3 * time.Second, Dial: func(cx context.Context) (net.Conn, error) {
+		var d net.Dialer
+		cn, err := d.DialContext(cx, "tcp", f.ln.Addr().String())
+		if err != nil {
+			return nil, err
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		fc := &flakyConn{Conn: cn, okWrites: laterOK, part: part}
+		if len(conns) == 0 {
+			fc.okWrites = -1
+		}
+		conns = append(conns, fc)
+		return fc, nil
+	}})
+	t.Cleanup(func() { _ = c.Close() })
+	return c, func() []*flakyConn {
+		mu.Lock()
+		defer mu.Unlock()
+		return append([]*flakyConn{}, conns...)
+	}
+}
+
+// A pooled connection that refuses the write (nothing written, or a torn
+// frame) is replaced once, for an update too: the server cannot have read a
+// whole frame, so it executes the update once.
+func TestUpdateRetriedOnceWhenPooledWriteFails(t *testing.T) {
+	for _, part := range []int{0, 3} {
+		f := newFake(t)
+		c, conns := flakyClient(t, f, part, -1)
+		if err := c.Health(ctx(t)); err != nil { // leaves a pooled connection
+			t.Fatal(err)
+		}
+		conns()[0].arm()
+		res, err := c.Update(ctx(t), Update{Pre: []Cond{Absent("a", "k")}, Ops: []Op{Put("a", "k", []byte("v"))}})
+		if err != nil || res.Outcome != OutcomeOk || res.CommitSeq != 1 {
+			t.Fatalf("part %d: pooled write failed: %v, %+v, want one retry on a fresh connection and Ok", part, err, res)
+		}
+		if n := f.updateCount(); n != 1 {
+			t.Fatalf("part %d: the server executed %d updates, want 1", part, n)
+		}
+	}
+}
+
+// Violating: the fresh connection fails its write too. One retry only; the
+// request was never completely sent, so nothing was executed.
+func TestUpdateWriteFailureIsRetriedOnlyOnce(t *testing.T) {
+	for _, part := range []int{0, 3} {
+		f := newFake(t)
+		c, conns := flakyClient(t, f, part, 1) // later connections: the hello passes, the update write fails
+		if err := c.Health(ctx(t)); err != nil {
+			t.Fatal(err)
+		}
+		conns()[0].arm()
+		res, err := c.Update(ctx(t), Update{Ops: []Op{Put("a", "k", []byte("v"))}})
+		want := OutcomeNone
+		if part > 0 {
+			want = OutcomeUnknown // bytes left the client: unknown, though the server cannot execute a torn frame
+		}
+		if res.Outcome != want || err == nil || errors.Is(err, ErrNotSent) != (part == 0) {
+			t.Fatalf("part %d: %v, %+v, want outcome %v", part, err, res, want)
+		}
+		if n := len(conns()); n != 2 {
+			t.Fatalf("part %d: %d connections, want 2: the update was tried more than twice", part, n)
+		}
+		if n := f.updateCount(); n != 0 {
+			t.Fatalf("part %d: the server executed %d updates", part, n)
+		}
+	}
+}
+
+// The server reads the whole frame, then closes without a reply byte: the
+// update may have been committed, so it is OutcomeUnknown and is not retried,
+// on a pooled connection as on a fresh one.
+func TestUpdateWholeFrameWrittenThenClosedIsUnknownAndNotRetried(t *testing.T) {
+	for _, pooled := range []bool{true, false} {
+		f := newFake(t)
+		c := newTestClient(t, f)
+		if pooled {
+			if err := c.Health(ctx(t)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		f.with(func() { f.dropAfter = 1 }) // executes the update, then closes without replying
+		res, err := c.Update(ctx(t), Update{Pre: []Cond{Absent("a", "k")}, Ops: []Op{Put("a", "k", []byte("v"))}})
+		if res.Outcome != OutcomeUnknown || !errors.Is(err, ErrOutcomeUnknown) {
+			t.Fatalf("pooled=%v: %v, %+v, want OutcomeUnknown", pooled, err, res)
+		}
+		if n := f.updateCount(); n != 1 {
+			t.Fatalf("pooled=%v: the server saw %d frames, want exactly 1", pooled, n)
+		}
+		if v, ok := mustGet(t, c, "a", "k", 0); !ok || v != "v" {
+			t.Fatalf("pooled=%v: read-back = %q, %v: the update committed", pooled, v, ok)
+		}
+		if seq, _ := c.Snapshot(ctx(t)); seq != 1 {
+			t.Fatalf("pooled=%v: commit sequence %d, want 1: the update ran twice", pooled, seq)
+		}
 	}
 }
 

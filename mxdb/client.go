@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"sync"
@@ -425,11 +424,13 @@ func decodeFailure(st byte, d *dec) (Result, error) {
 
 // do sends body and returns the reply body. sent reports whether any byte of
 // the request may have reached the server; when it is false the request was
-// not executed. A pooled connection that fails before any reply byte arrives
-// (reset, closed by the server, nothing written) is retried once on a fresh
-// connection, for updates too: the server may have closed it while idle. A
-// timeout or a cancelled context is not retried, nor is a failure after the
-// first reply byte, except for read-only requests, which are repeatable.
+// not executed. A pooled connection that fails is retried once on a fresh one
+// in two cases: any failure of a read-only request (repeatable), and, for an
+// update, only a failure while writing the request (the stale socket refuses
+// the write, so the server cannot have read a whole frame). Once the whole
+// update frame was written, a failure before or during the reply leaves the
+// outcome unknown and is not retried. A timeout or a cancelled context is
+// never retried for an update.
 func (c *Client) do(ctx context.Context, body []byte, readOnly bool) (reply []byte, sent bool, err error) {
 	if err := ctx.Err(); err != nil {
 		return nil, false, err
@@ -439,7 +440,7 @@ func (c *Client) do(ctx context.Context, body []byte, readOnly bool) (reply []by
 		if err != nil {
 			return nil, false, err
 		}
-		reply, wrote, silent, reuse, err := c.exchange(ctx, cn, body)
+		reply, wrote, wfail, reuse, err := c.exchange(ctx, cn, body)
 		if err == nil && reuse {
 			c.release(cn)
 		} else {
@@ -448,7 +449,7 @@ func (c *Client) do(ctx context.Context, body []byte, readOnly bool) (reply []by
 		if err == nil {
 			return reply, true, nil
 		}
-		if pooled && attempt == 0 && ctx.Err() == nil && (silent || readOnly) {
+		if pooled && attempt == 0 && ctx.Err() == nil && (wfail || readOnly) {
 			continue
 		}
 		return nil, wrote, err
@@ -506,24 +507,12 @@ func (c *Client) release(cn net.Conn) {
 	_ = cn.Close()
 }
 
-// countReader counts the bytes read through it.
-type countReader struct {
-	r io.Reader
-	n int
-}
-
-func (c *countReader) Read(p []byte) (int, error) {
-	n, err := c.r.Read(p)
-	c.n += n
-	return n, err
-}
-
 // exchange writes one request frame on cn and reads one reply frame. wrote
 // reports whether any byte of the request was accepted by the connection;
-// silent, on an error, that no reply byte arrived and the failure was not a
-// timeout or a cancelled context; reuse that cn is still fit for another call
-// (a ProtocolError reply makes it unfit: the server closes that connection).
-func (c *Client) exchange(ctx context.Context, cn net.Conn, body []byte) (reply []byte, wrote, silent, reuse bool, err error) {
+// wfail that writing the request failed (not by timeout or cancellation), so
+// the server cannot have read a complete frame; reuse that cn is still fit for
+// another call (a ProtocolError reply makes it unfit: the server closes it).
+func (c *Client) exchange(ctx context.Context, cn net.Conn, body []byte) (reply []byte, wrote, wfail, reuse bool, err error) {
 	dl := time.Now().Add(c.cfg.Timeout)
 	if d, ok := ctx.Deadline(); ok && d.Before(dl) {
 		dl = d
@@ -533,13 +522,12 @@ func (c *Client) exchange(ctx context.Context, cn net.Conn, body []byte) (reply 
 	}
 	stop := context.AfterFunc(ctx, func() { _ = cn.SetDeadline(time.Unix(1, 0)) })
 	n, err := cn.Write(appendFrame(body))
-	cr := &countReader{r: cn}
+	wfail = err != nil && ctx.Err() == nil && !errors.Is(err, os.ErrDeadlineExceeded)
 	if err == nil {
-		reply, err = readFrame(cr)
+		reply, err = readFrame(cn)
 	}
 	reuse = stop() && err == nil && reply[0] != stProtocolError
 	if err != nil {
-		silent = cr.n == 0 && ctx.Err() == nil && !errors.Is(err, os.ErrDeadlineExceeded)
 		cerr := ctx.Err()
 		if d, ok := ctx.Deadline(); cerr == nil && ok && errors.Is(err, os.ErrDeadlineExceeded) && !time.Now().Before(d) {
 			cerr = context.DeadlineExceeded // the connection's deadline is the context's and fired first
@@ -547,7 +535,7 @@ func (c *Client) exchange(ctx context.Context, cn net.Conn, body []byte) (reply 
 		if cerr != nil {
 			err = fmt.Errorf("%w: %v", cerr, err)
 		}
-		return nil, n > 0, silent, false, err
+		return nil, n > 0, wfail, false, err
 	}
 	return reply, true, false, reuse, nil
 }

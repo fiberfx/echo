@@ -46,5 +46,14 @@ for t in TestUpdateDroppedConnIsUnknown TestOutcomeClassesDistinct; do
 done
 grep -q -E '^--- PASS: TestUpdateOkAndGet ' /tmp/mutant.log; row "the mutant leaves an unrelated test green" $?
 
+echo "=== mutant: an update is retried after the whole frame was written (the old behaviour), on a copy"
+rm -rf /tmp/mut2 && mkdir -p /tmp/mut2 && cp go.mod go.sum /tmp/mut2/ && cp -R mxdb /tmp/mut2/mxdb
+sed 's/(wfail || readOnly)/(wfail || readOnly || true)/' mxdb/client.go > /tmp/mut2/mxdb/client.go
+cmp -s mxdb/client.go /tmp/mut2/mxdb/client.go; [ $? -ne 0 ]; row "the retry mutant differs from the source" $?
+(cd /tmp/mut2 && go test -count=1 -v ./mxdb/ > /tmp/mutant2.log 2>&1); rc=$?
+grep -E '^(--- FAIL|FAIL|ok)' /tmp/mutant2.log | sed 's/^/    | /'
+[ $rc -ne 0 ] && ! grep -q -E '\[build failed\]|^# ' /tmp/mutant2.log; row "the retry mutant fails its tests and compiles" $?
+grep -q "^--- FAIL: TestUpdateWholeFrameWrittenThenClosedIsUnknownAndNotRetried " /tmp/mutant2.log; row "the retry mutant turns the whole-frame test red" $?
+
 if [ $fail -eq 0 ]; then echo "RESULT mxdbclient PASS"; exit 0; fi
 echo "RESULT mxdbclient FAIL"; exit 1
