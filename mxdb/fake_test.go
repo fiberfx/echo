@@ -37,9 +37,9 @@ type fakeServer struct {
 	hellos     []uint32
 	updates    [][]byte
 	scans      int
-	dropBefore int       // drop the connection on the next n updates, before applying
-	dropAfter  int       // drop the connection on the next n updates, after applying
-	force      []byte    // reply body for the next update instead of executing it
+	dropBefore int           // drop the connection on the next n updates, before applying
+	dropAfter  int           // drop the connection on the next n updates, after applying
+	force      []byte        // reply body for the next update instead of executing it
 	stall      chan struct{} // updates wait for this to close
 }
 

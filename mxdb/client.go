@@ -87,10 +87,10 @@ type Update struct {
 
 // Config configures a Client.
 type Config struct {
-	Addr    string                                     // host:port of mxdbd, used when Dial is nil
+	Addr    string                                      // host:port of mxdbd, used when Dial is nil
 	Dial    func(ctx context.Context) (net.Conn, error) // replaces the TCP dial
-	MaxIdle int                                        // idle connections kept; default 4
-	Timeout time.Duration                              // per call, when ctx has no earlier deadline; default 10s
+	MaxIdle int                                         // idle connections kept; default 4
+	Timeout time.Duration                               // per call, when ctx has no earlier deadline; default 10s
 }
 
 // Client is safe for concurrent use. Each in-flight call owns one connection.
