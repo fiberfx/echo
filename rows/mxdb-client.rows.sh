@@ -1,11 +1,15 @@
 #!/bin/sh
 # Rows of the mxdb Go client (package mxdb, scaffold/mxdb-client): vet, the tests under the race detector against
 # an in-process fake server, the std-only check, and one mutant that maps OutcomeUnknown to Aborted and must turn
-# named tests red. The container is offline; the module cache is not needed because the package imports only std.
+# named tests red. Image mx-trafikist-toolchain:go1.27.4-rust1.100.0-r2 (Go 1.27.4, which go.mod needs) with inputs
+# mx-echo-eid-in (/w/inputs/gomod, a file:// module proxy at go.sum's pins); the package imports only std, so the
+# proxy is read only if go asks for the module graph.
 set -u
 cd /w || exit 2
-export HOME=/tmp/mxdb-home GOPATH=/tmp/mxdb-gopath GOFLAGS=-mod=readonly GOPROXY=off GOTOOLCHAIN=local
-export GOCACHE=/tmp/mxdb-home/.cache/go-build CGO_ENABLED=1
+export HOME=/tmp/mxdb-home GOPATH=/tmp/mxdb-gopath GOCACHE=/tmp/mxdb-home/.cache/go-build
+export GOTOOLCHAIN=local GOSUMDB=off GOWORK=off GOPRIVATE= GONOSUMDB=
+export GOPROXY="file:///w/inputs/gomod" GOFLAGS='-modcacherw -mod=readonly' CGO_ENABLED=1
+export LANG=C.UTF-8 LC_ALL=C.UTF-8
 mkdir -p "$HOME" "$GOPATH" "$GOCACHE"
 fail=0
 row() { # name rc
