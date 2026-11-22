@@ -1,5 +1,9 @@
 # MX Echo roadmap
 
+## v6.9.0
+
+Request ids are Ecd IDs (eids) and nothing else: the id scheme of v6.7.0 is removed without a compatibility path, and `reqid` mints on a lease or detached. The package `mxdb` adds a Go client of the mxdb sidecar.
+
 ## v6.8.0
 
 The names held back in v6.6.0 ship, each opt-in. A server's main reads its exit status from the stop report, a COR reads back from JSON, and a supervised service can name a request's node, carry it on outgoing calls, and start a child that fv records under the attempt. Not yet shown under a running fv: the child and link environments, the outgoing traceparent, and the grace, which waits for fv to state it.
