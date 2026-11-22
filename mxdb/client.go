@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"sync"
@@ -37,11 +38,12 @@ func (o Outcome) String() string {
 }
 
 // Result describes one update. CommitSeq is set for Ok, FailedPre for Aborted,
-// Reason for Rejected and for an Unknown the server reported.
+// Code and Reason for Rejected, Reason for an Unknown the server reported.
 type Result struct {
 	Outcome   Outcome
 	CommitSeq uint64
 	FailedPre int
+	Code      RejectCode
 	Reason    string
 }
 
@@ -247,11 +249,20 @@ func (c *Client) Scan(ctx context.Context, r ScanRequest) (Page, error) {
 }
 
 // ScanAll calls fn for every key of db in order, page by page of limit keys,
-// all pages at the commit sequence of the first. It stops at the first error.
+// all pages at the commit sequence of the first. When the server no longer has
+// that commit (NoSuchCommit) the page is read again at the latest commit and
+// the following pages pin to it, so a scan that outlives its snapshot goes on
+// after the last key it delivered, no longer from one snapshot. It stops at
+// the first other error.
 func (c *Client) ScanAll(ctx context.Context, db string, limit int, fn func(Item) error) error {
 	req := ScanRequest{DB: db, Limit: limit}
 	for {
 		p, err := c.Scan(ctx, req)
+		if err != nil && req.At != 0 && pinGone(err) {
+			// The pinned commit is gone: read this page at the latest commit (At 0) and pin to that.
+			req.At = 0
+			continue
+		}
 		if err != nil {
 			return err
 		}
@@ -265,6 +276,13 @@ func (c *Client) ScanAll(ctx context.Context, db string, limit int, fn func(Item
 		}
 		req.After, req.At = p.Next, p.At
 	}
+}
+
+// pinGone reports whether err says the commit a pinned scan read at no longer
+// exists (NoSuchCommit).
+func pinGone(err error) bool {
+	var rj *RejectedError
+	return errors.As(err, &rj) && rj.Code == NoSuchCommit
 }
 
 // Health returns nil when mxdbd answers that it is serving.
@@ -384,11 +402,17 @@ func decodeFailure(st byte, d *dec) (Result, error) {
 		}
 		return Result{Outcome: OutcomeAborted, FailedPre: int(i)}, &AbortedError{FailedPre: int(i)}
 	case stRejected:
+		code, reason := RejectCode(d.u8()), d.str()
+		if err := d.finish(); err != nil {
+			return Result{}, err
+		}
+		return Result{Outcome: OutcomeRejected, Code: code, Reason: reason}, &RejectedError{Code: code, Reason: reason}
+	case stProtocolError:
 		reason := d.str()
 		if err := d.finish(); err != nil {
 			return Result{}, err
 		}
-		return Result{Outcome: OutcomeRejected, Reason: reason}, &RejectedError{Reason: reason}
+		return Result{Outcome: OutcomeRejected, Reason: reason}, &ProtocolError{Reason: reason}
 	case stUnknown:
 		reason := d.str()
 		if err := d.finish(); err != nil {
@@ -401,9 +425,11 @@ func decodeFailure(st byte, d *dec) (Result, error) {
 
 // do sends body and returns the reply body. sent reports whether any byte of
 // the request may have reached the server; when it is false the request was
-// not executed. A stale pooled connection is retried once on a fresh one:
-// always when nothing was written, and for read-only requests when anything
-// was.
+// not executed. A pooled connection that fails before any reply byte arrives
+// (reset, closed by the server, nothing written) is retried once on a fresh
+// connection, for updates too: the server may have closed it while idle. A
+// timeout or a cancelled context is not retried, nor is a failure after the
+// first reply byte, except for read-only requests, which are repeatable.
 func (c *Client) do(ctx context.Context, body []byte, readOnly bool) (reply []byte, sent bool, err error) {
 	if err := ctx.Err(); err != nil {
 		return nil, false, err
@@ -413,7 +439,7 @@ func (c *Client) do(ctx context.Context, body []byte, readOnly bool) (reply []by
 		if err != nil {
 			return nil, false, err
 		}
-		reply, wrote, reuse, err := c.exchange(ctx, cn, body)
+		reply, wrote, silent, reuse, err := c.exchange(ctx, cn, body)
 		if err == nil && reuse {
 			c.release(cn)
 		} else {
@@ -422,7 +448,7 @@ func (c *Client) do(ctx context.Context, body []byte, readOnly bool) (reply []by
 		if err == nil {
 			return reply, true, nil
 		}
-		if pooled && attempt == 0 && ctx.Err() == nil && (!wrote || readOnly) {
+		if pooled && attempt == 0 && ctx.Err() == nil && (silent || readOnly) {
 			continue
 		}
 		return nil, wrote, err
@@ -450,7 +476,7 @@ func (c *Client) acquire(ctx context.Context, fresh bool) (cn net.Conn, pooled b
 	}
 	e := enc{b: []byte{opHello}}
 	e.u32(Version)
-	reply, _, _, err := c.exchange(dctx, cn, e.b)
+	reply, _, _, _, err := c.exchange(dctx, cn, e.b)
 	if err == nil {
 		d := newDec(reply)
 		if st := d.u8(); st != stOK {
@@ -480,24 +506,40 @@ func (c *Client) release(cn net.Conn) {
 	_ = cn.Close()
 }
 
+// countReader counts the bytes read through it.
+type countReader struct {
+	r io.Reader
+	n int
+}
+
+func (c *countReader) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	c.n += n
+	return n, err
+}
+
 // exchange writes one request frame on cn and reads one reply frame. wrote
 // reports whether any byte of the request was accepted by the connection;
-// reuse reports whether cn is still fit for another call.
-func (c *Client) exchange(ctx context.Context, cn net.Conn, body []byte) (reply []byte, wrote, reuse bool, err error) {
+// silent, on an error, that no reply byte arrived and the failure was not a
+// timeout or a cancelled context; reuse that cn is still fit for another call
+// (a ProtocolError reply makes it unfit: the server closes that connection).
+func (c *Client) exchange(ctx context.Context, cn net.Conn, body []byte) (reply []byte, wrote, silent, reuse bool, err error) {
 	dl := time.Now().Add(c.cfg.Timeout)
 	if d, ok := ctx.Deadline(); ok && d.Before(dl) {
 		dl = d
 	}
 	if err := cn.SetDeadline(dl); err != nil {
-		return nil, false, false, err
+		return nil, false, false, false, err
 	}
 	stop := context.AfterFunc(ctx, func() { _ = cn.SetDeadline(time.Unix(1, 0)) })
 	n, err := cn.Write(appendFrame(body))
+	cr := &countReader{r: cn}
 	if err == nil {
-		reply, err = readFrame(cn)
+		reply, err = readFrame(cr)
 	}
-	reuse = stop() && err == nil
+	reuse = stop() && err == nil && reply[0] != stProtocolError
 	if err != nil {
+		silent = cr.n == 0 && ctx.Err() == nil && !errors.Is(err, os.ErrDeadlineExceeded)
 		cerr := ctx.Err()
 		if d, ok := ctx.Deadline(); cerr == nil && ok && errors.Is(err, os.ErrDeadlineExceeded) && !time.Now().Before(d) {
 			cerr = context.DeadlineExceeded // the connection's deadline is the context's and fired first
@@ -505,7 +547,7 @@ func (c *Client) exchange(ctx context.Context, cn net.Conn, body []byte) (reply 
 		if cerr != nil {
 			err = fmt.Errorf("%w: %v", cerr, err)
 		}
-		return nil, n > 0, false, err
+		return nil, n > 0, silent, false, err
 	}
-	return reply, true, reuse, nil
+	return reply, true, false, reuse, nil
 }

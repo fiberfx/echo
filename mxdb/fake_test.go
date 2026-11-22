@@ -41,6 +41,9 @@ type fakeServer struct {
 	dropAfter  int           // drop the connection on the next n updates, after applying
 	force      []byte        // reply body for the next update instead of executing it
 	stall      chan struct{} // updates wait for this to close
+	forget     uint64        // pinned reads at a commit below this fail with NoSuchCommit
+	scanFail   bool          // pinned scans fail with Io
+	truncate   bool          // the next reply is cut after two bytes and the connection dropped
 }
 
 func newFake(t *testing.T) *fakeServer {
@@ -108,6 +111,14 @@ func (f *fakeServer) serve(cn net.Conn) {
 		if drop {
 			return
 		}
+		f.mu.Lock()
+		cut := f.truncate
+		f.truncate = false
+		f.mu.Unlock()
+		if cut {
+			_, _ = cn.Write(appendFrame(reply)[:2])
+			return
+		}
 		if _, err := cn.Write(appendFrame(reply)); err != nil {
 			return
 		}
@@ -144,15 +155,22 @@ func (f *fakeServer) handle(body []byte) ([]byte, bool) {
 	case opHealth:
 		return mkReply(stOK, nil), false
 	default:
-		return mkReply(stRejected, func(e *enc) { e.str("unknown operation") }), false
+		return protoErr("unknown operation"), false
 	}
 }
 
-func rejected(why string) []byte {
-	return mkReply(stRejected, func(e *enc) { e.str(why) })
+func rejected(code RejectCode, why string) []byte {
+	return mkReply(stRejected, func(e *enc) { e.u8(byte(code)); e.str(why) })
+}
+
+func protoErr(why string) []byte {
+	return mkReply(stProtocolError, func(e *enc) { e.str(why) })
 }
 
 func (f *fakeServer) at(at uint64) (state, uint64, bool) {
+	if at != 0 && at < f.forget {
+		return nil, 0, false
+	}
 	if at == 0 {
 		at = uint64(len(f.snaps) - 1)
 	}
@@ -165,13 +183,13 @@ func (f *fakeServer) at(at uint64) (state, uint64, bool) {
 func (f *fakeServer) get(d *dec) []byte {
 	db, key, at := d.str(), d.str(), d.u64()
 	if d.finish() != nil {
-		return rejected("malformed")
+		return protoErr("malformed")
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	s, _, ok := f.at(at)
 	if !ok {
-		return rejected("unknown snapshot")
+		return rejected(NoSuchCommit, "unknown snapshot")
 	}
 	v, found := s[db][key]
 	return mkReply(stOK, func(e *enc) {
@@ -187,14 +205,17 @@ func (f *fakeServer) get(d *dec) []byte {
 func (f *fakeServer) scan(d *dec) []byte {
 	db, after, limit, at := d.str(), d.str(), int(d.u32()), d.u64()
 	if d.finish() != nil {
-		return rejected("malformed")
+		return protoErr("malformed")
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.scans++
+	if f.scanFail && at != 0 {
+		return rejected(Io, "disk error")
+	}
 	s, at, ok := f.at(at)
 	if !ok {
-		return rejected("unknown snapshot")
+		return rejected(NoSuchCommit, "unknown snapshot")
 	}
 	var keys []string
 	for k := range s[db] {
@@ -287,11 +308,16 @@ func (f *fakeServer) update(body []byte, d *dec) ([]byte, bool) {
 		ops[i] = o
 	}
 	if d.finish() != nil {
-		return rejected("malformed update"), false
+		return protoErr("malformed update"), false
+	}
+	for _, o := range ops {
+		if len(o.key) > 64 {
+			return rejected(KeyTooLong, "key is longer than 64 bytes"), false
+		}
 	}
 	for _, db := range dbs {
 		if db == "readonly" {
-			return rejected("database readonly is read-only"), false
+			return rejected(Other, "database readonly is read-only"), false
 		}
 	}
 
@@ -300,7 +326,7 @@ func (f *fakeServer) update(body []byte, d *dec) ([]byte, bool) {
 	cur := f.snaps[len(f.snaps)-1]
 	for i, p := range pres {
 		if int(p.db) >= len(dbs) {
-			return rejected("database index out of range"), false
+			return protoErr("database index out of range"), false
 		}
 		v, ok := cur[dbs[p.db]][p.key]
 		if (p.kind == condHolds && (!ok || !bytes.Equal(v, p.val))) || (p.kind == condAbsent && ok) {
@@ -310,7 +336,7 @@ func (f *fakeServer) update(body []byte, d *dec) ([]byte, bool) {
 	next := cur.clone()
 	for _, o := range ops {
 		if int(o.db) >= len(dbs) {
-			return rejected("database index out of range"), false
+			return protoErr("database index out of range"), false
 		}
 		name := dbs[o.db]
 		if next[name] == nil {

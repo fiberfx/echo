@@ -23,12 +23,13 @@ const (
 	opHealth
 )
 
-// Reply statuses; the first four are the outcomes of an update.
+// Reply statuses; the first four are the outcomes of an update, the fifth a refused frame.
 const (
 	stOK byte = iota
 	stAborted
 	stRejected
 	stUnknown
+	stProtocolError // the server could not parse the request; it closes the connection
 )
 
 // Precondition and operation kinds inside an update.

@@ -277,20 +277,94 @@ func TestRejectedCarriesReason(t *testing.T) {
 	c := newTestClient(t, f)
 	res, err := c.Update(ctx(t), Update{Ops: []Op{Put("readonly", "k", nil)}})
 	var rj *RejectedError
-	if !errors.As(err, &rj) || !strings.Contains(rj.Reason, "read-only") || res.Reason != rj.Reason {
+	if !errors.As(err, &rj) || !strings.Contains(rj.Reason, "read-only") || res.Reason != rj.Reason || rj.Code != Other || res.Code != Other {
 		t.Fatalf("%v, %+v", err, res)
 	}
+	res, err = c.Update(ctx(t), Update{Ops: []Op{Put("a", strings.Repeat("k", 65), nil)}})
+	if !errors.As(err, &rj) || rj.Code != KeyTooLong || res.Code != KeyTooLong || res.Outcome != OutcomeRejected {
+		t.Fatalf("a 65-byte key: %v, %+v, want Rejected KeyTooLong", err, res)
+	}
+	if _, _, err := c.Get(ctx(t), "a", "k", 99); !errors.As(err, &rj) || rj.Code != NoSuchCommit {
+		t.Fatalf("get at an unknown commit: %v, want Rejected NoSuchCommit", err)
+	}
+}
+
+// The reject codes are the wire values 0..8, in the order of the protocol.
+func TestRejectCodes(t *testing.T) {
+	names := []string{"KeyTooLong", "ValueTooLong", "TransactionTooLarge", "Poisoned", "Io", "LockLost", "NoSuchCommit", "DamagedTail", "Other"}
+	codes := []RejectCode{KeyTooLong, ValueTooLong, TransactionTooLarge, Poisoned, Io, LockLost, NoSuchCommit, DamagedTail, Other}
+	f := newFake(t)
+	c := newTestClient(t, f)
+	for i, want := range codes {
+		if int(want) != i || want.String() != names[i] {
+			t.Fatalf("code %d is %v, want %d %s", want, want, i, names[i])
+		}
+		f.with(func() { f.force = mkReply(stRejected, func(e *enc) { e.u8(byte(i)); e.str("why " + names[i]) }) })
+		res, err := c.Update(ctx(t), Update{Ops: []Op{Put("a", "k", nil)}})
+		var rj *RejectedError
+		if !errors.As(err, &rj) || rj.Code != want || res.Code != want || rj.Reason != "why "+names[i] || res.Outcome != OutcomeRejected {
+			t.Fatalf("wire code %d: %v, %+v", i, err, res)
+		}
+	}
+	if RejectCode(200).String() != "RejectCode(200)" {
+		t.Fatal(RejectCode(200).String())
+	}
+}
+
+// Status 4: the update is Rejected and nothing is committed, the error is
+// ErrProtocol, and the connection is closed, never returned to the pool. An
+// ordinary Rejected keeps its connection.
+func TestProtocolErrorIsRejectedAndDropsTheConnection(t *testing.T) {
+	f := newFake(t)
+	c := newTestClient(t, f)
+	idle := func() (n int) {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		return len(c.idle)
+	}
+
+	f.with(func() { f.force = protoErr("bad frame") })
+	res, err := c.Update(ctx(t), Update{Ops: []Op{Put("a", "k", []byte("v"))}})
+	var pe *ProtocolError
+	if res.Outcome != OutcomeRejected || res.Reason != "bad frame" || !errors.As(err, &pe) ||
+		!errors.Is(err, ErrProtocol) || !errors.Is(err, ErrRejected) || errors.Is(err, ErrOutcomeUnknown) || errors.Is(err, ErrAborted) {
+		t.Fatalf("status 4: %v, %+v, want Rejected and ErrProtocol", err, res)
+	}
+	if n := idle(); n != 0 {
+		t.Fatalf("%d pooled connections after a ProtocolError, want 0", n)
+	}
+	if seq, err := c.Snapshot(ctx(t)); err != nil || seq != 0 {
+		t.Fatalf("snapshot = %d, %v: the refused update committed", seq, err)
+	}
+	if n := f.connCount(); n != 2 {
+		t.Fatalf("%d connections, want 2: the next call dialled afresh", n)
+	}
+
+	// Violating contrast: an ordinary Rejected leaves its connection in the pool.
+	c2 := newTestClient(t, f)
+	f.with(func() { f.force = rejected(Other, "no") })
+	if _, err := c2.Update(ctx(t), Update{Ops: []Op{Put("a", "k", nil)}}); !errors.Is(err, ErrRejected) || errors.Is(err, ErrProtocol) {
+		t.Fatalf("plain Rejected: %v", err)
+	}
+	c2.mu.Lock()
+	n := len(c2.idle)
+	c2.mu.Unlock()
+	if n != 1 {
+		t.Fatalf("%d pooled connections after an ordinary Rejected, want 1", n)
+	}
+}
+
+func (f *fakeServer) connCount() (n int) {
+	f.with(func() { n = f.conns })
+	return n
 }
 
 // A connection that drops after the request was sent is OutcomeUnknown, not
 // Aborted and not Rejected; the update did not run, and the caller can see it
-// by reading back.
+// by reading back. On a fresh connection nothing is retried.
 func TestUpdateDroppedConnIsUnknown(t *testing.T) {
 	f := newFake(t)
 	c := newTestClient(t, f)
-	if err := c.Health(ctx(t)); err != nil { // leaves a pooled connection
-		t.Fatal(err)
-	}
 	f.with(func() { f.dropBefore = 1 })
 
 	res, err := c.Update(ctx(t), Update{Ops: []Op{Put("a", "k", []byte("v"))}})
@@ -304,14 +378,67 @@ func TestUpdateDroppedConnIsUnknown(t *testing.T) {
 	if !errors.As(err, &un) || un.Cause == nil {
 		t.Fatalf("no cause: %v", err)
 	}
-	f.mu.Lock()
-	n := len(f.updates)
-	f.mu.Unlock()
-	if n != 1 {
-		t.Fatalf("the server saw %d updates: an update was retried after an unknown outcome", n)
+	if n := f.updateCount(); n != 1 {
+		t.Fatalf("the server saw %d updates: an update on a fresh connection was retried", n)
 	}
 	if _, ok := mustGet(t, c, "a", "k", 0); ok {
 		t.Fatal("read-back found an update the server dropped")
+	}
+}
+
+func (f *fakeServer) updateCount() (n int) {
+	f.with(func() { n = len(f.updates) })
+	return n
+}
+
+// A pooled connection that is reset before any reply byte is replaced once,
+// for an update too; a second failure, or one on a fresh connection, is unknown.
+func TestUpdateRetriedOnceWhenPooledConnectionIsReset(t *testing.T) {
+	f := newFake(t)
+	c := newTestClient(t, f)
+	if err := c.Health(ctx(t)); err != nil { // leaves a pooled connection
+		t.Fatal(err)
+	}
+	f.with(func() { f.dropBefore = 1 })
+	res, err := c.Update(ctx(t), Update{Pre: []Cond{Absent("a", "k")}, Ops: []Op{Put("a", "k", []byte("v"))}})
+	if err != nil || res.Outcome != OutcomeOk || res.CommitSeq != 1 {
+		t.Fatalf("pooled connection reset: %v, %+v, want one retry on a fresh connection and Ok", err, res)
+	}
+	if n := f.updateCount(); n != 2 {
+		t.Fatalf("the server saw %d update frames, want 2 (the dropped one and the retry)", n)
+	}
+
+	// Violating: the retry is dropped too. One retry only; the outcome is unknown.
+	if err := c.Health(ctx(t)); err != nil {
+		t.Fatal(err)
+	}
+	f.with(func() { f.dropBefore = 2 })
+	res, err = c.Update(ctx(t), Update{Ops: []Op{Put("a", "j", []byte("v"))}})
+	if res.Outcome != OutcomeUnknown || !errors.Is(err, ErrOutcomeUnknown) {
+		t.Fatalf("reset twice: %v, %+v, want OutcomeUnknown", err, res)
+	}
+	if n := f.updateCount(); n != 4 {
+		t.Fatalf("the server saw %d update frames, want 4: the second update was tried more than twice", n)
+	}
+}
+
+// Once a reply byte has arrived the update may have run: no retry.
+func TestUpdateCutAfterFirstReplyByteIsNotRetried(t *testing.T) {
+	f := newFake(t)
+	c := newTestClient(t, f)
+	if err := c.Health(ctx(t)); err != nil {
+		t.Fatal(err)
+	}
+	f.with(func() { f.truncate = true })
+	res, err := c.Update(ctx(t), Update{Pre: []Cond{Absent("a", "k")}, Ops: []Op{Put("a", "k", []byte("v"))}})
+	if res.Outcome != OutcomeUnknown || !errors.Is(err, ErrOutcomeUnknown) {
+		t.Fatalf("reply cut after two bytes: %v, %+v", err, res)
+	}
+	if n := f.updateCount(); n != 1 {
+		t.Fatalf("the server saw %d update frames, want 1: a retry followed a partial reply", n)
+	}
+	if v, ok := mustGet(t, c, "a", "k", 0); !ok || v != "v" {
+		t.Fatalf("read-back = %q, %v: the update did commit", v, ok)
 	}
 }
 
@@ -573,4 +700,75 @@ func TestConcurrentCalls(t *testing.T) {
 	if err := c.ScanAll(ctx(t), "a", 5, func(Item) error { cnt++; return nil }); err != nil || cnt != n {
 		t.Fatalf("scan found %d of %d: %v", cnt, n, err)
 	}
+}
+
+func fillScan(t *testing.T, c *Client) {
+	t.Helper()
+	var ops []Op
+	for i := 0; i < 25; i++ {
+		ops = append(ops, Put("a", fmt.Sprintf("k%02d", i), []byte("v")))
+	}
+	if _, err := c.Update(ctx(t), Update{Ops: ops}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A pinned scan whose commit is gone says NoSuchCommit; Scan reports it, and
+// ScanAll goes on at At 0 from the last key it delivered, once per page.
+func TestScanAllRestartsAtLatestWhenPinnedCommitIsGone(t *testing.T) {
+	f := newFake(t)
+	c := newTestClient(t, f)
+	fillScan(t, c)
+
+	p1, err := c.Scan(ctx(t), ScanRequest{DB: "a", Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.with(func() { f.forget = 1 << 62 })
+	var rj *RejectedError
+	if _, err := c.Scan(ctx(t), ScanRequest{DB: "a", After: p1.Next, Limit: 10, At: p1.At}); !errors.As(err, &rj) || rj.Code != NoSuchCommit {
+		t.Fatalf("Scan at a forgotten commit: %v, want Rejected NoSuchCommit", err)
+	}
+
+	f.with(func() { f.forget = 0 })
+	var keys []string
+	err = c.ScanAll(ctx(t), "a", 10, func(it Item) error {
+		keys = append(keys, it.Key)
+		if len(keys) == 10 {
+			f.with(func() { f.forget = 1 << 62 }) // the server drops its commits after page 1
+		}
+		return nil
+	})
+	if err != nil || len(keys) != 25 {
+		t.Fatalf("ScanAll: %v, %d keys, want 25", err, len(keys))
+	}
+	for i, k := range keys {
+		if k != fmt.Sprintf("k%02d", i) {
+			t.Fatalf("key %d is %s: a key repeated or was skipped: %v", i, k, keys)
+		}
+	}
+}
+
+// Violating: only NoSuchCommit restarts a scan. Any other rejection ends it.
+func TestScanAllDoesNotRestartOnOtherRejections(t *testing.T) {
+	f := newFake(t)
+	c := newTestClient(t, f)
+	fillScan(t, c)
+	var keys []string
+	err := c.ScanAll(ctx(t), "a", 10, func(it Item) error {
+		keys = append(keys, it.Key)
+		if len(keys) == 10 {
+			f.with(func() { f.scanFail = true })
+		}
+		return nil
+	})
+	var rj *RejectedError
+	if !errors.As(err, &rj) || rj.Code != Io || len(keys) != 10 {
+		t.Fatalf("ScanAll: %v, %d keys, want Rejected Io after 10", err, len(keys))
+	}
+	f.with(func() {
+		if f.scans != 2 {
+			t.Errorf("%d scans, want 2: the failed page was retried", f.scans)
+		}
+	})
 }

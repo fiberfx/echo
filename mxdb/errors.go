@@ -15,7 +15,8 @@ var (
 	ErrOutcomeUnknown = errors.New("mxdb: outcome unknown: read back before retrying")
 	// ErrNotSent: the request provably never reached the server; it is safe to retry.
 	ErrNotSent = errors.New("mxdb: request not sent")
-	// ErrProtocol: the peer sent a frame this client cannot parse.
+	// ErrProtocol: the server answered ProtocolError (status 4: it could not parse the request), or the peer
+	// sent a frame this client cannot parse. An update the server refused so is also ErrRejected.
 	ErrProtocol = errors.New("mxdb: protocol error")
 
 	ErrNoOps     = errors.New("mxdb: update has no operations")
@@ -33,13 +34,51 @@ func (e *AbortedError) Error() string {
 }
 func (e *AbortedError) Is(target error) bool { return target == ErrAborted }
 
-// RejectedError is the outcome Rejected.
-type RejectedError struct{ Reason string }
+// RejectCode says why the server rejected a request; the wire value is the
+// constant's number.
+type RejectCode uint8
+
+const (
+	KeyTooLong RejectCode = iota
+	ValueTooLong
+	TransactionTooLarge
+	Poisoned
+	Io
+	LockLost
+	NoSuchCommit
+	DamagedTail
+	Other
+)
+
+var rejectNames = [...]string{"KeyTooLong", "ValueTooLong", "TransactionTooLarge", "Poisoned", "Io", "LockLost", "NoSuchCommit", "DamagedTail", "Other"}
+
+func (c RejectCode) String() string {
+	if int(c) < len(rejectNames) {
+		return rejectNames[c]
+	}
+	return fmt.Sprintf("RejectCode(%d)", uint8(c))
+}
+
+// RejectedError is the outcome Rejected; nothing was committed.
+type RejectedError struct {
+	Code   RejectCode
+	Reason string
+}
 
 func (e *RejectedError) Error() string {
-	return fmt.Sprintf("%v: %s", ErrRejected, e.Reason)
+	return fmt.Sprintf("%v: %v: %s", ErrRejected, e.Code, e.Reason)
 }
 func (e *RejectedError) Is(target error) bool { return target == ErrRejected }
+
+// ProtocolError is the server's status 4: it could not parse the request. As
+// an update outcome it is Rejected (nothing was committed) and matches both
+// ErrProtocol and ErrRejected. The client closes the connection it came on.
+type ProtocolError struct{ Reason string }
+
+func (e *ProtocolError) Error() string {
+	return fmt.Sprintf("%v: server refused the request: %s", ErrProtocol, e.Reason)
+}
+func (e *ProtocolError) Is(target error) bool { return target == ErrProtocol || target == ErrRejected }
 
 // UnknownError is the outcome OutcomeUnknown; Cause says why it is unknown.
 type UnknownError struct{ Cause error }
