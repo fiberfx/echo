@@ -34,25 +34,26 @@ func TestCorrelationNames(t *testing.T) {
 }
 
 func TestParseCorrelation(t *testing.T) {
-	for _, s := range []string{"COR0SCMa0vxXFZ", "COR00000000000", "CORAzL8n0Y58m7", "COR0SF1bsgvgpc"} {
+	for _, s := range []string{"mxe_cor_23obzcbapvupu2272222", "mxe_cor_22222222222222222222", "zzz_cor_bzzzzzzzzzzzzzzzzzzw", "mxe_cor_23obzcbapvupu2272226", "3ab_cor_23obzcbapv5prncp2222"} {
 		c, ok := reqid.ParseCorrelation(s)
 		if !ok || c.IsZero() || c.String() != s {
 			t.Errorf("ParseCorrelation(%q) = (%q, %t), want the same text and true", s, c, ok)
 		}
-		_, snowflake, _ := reqid.DecodeBranded(s)
-		if n, ok := reqid.NewCorrelation(snowflake); !ok || n != c {
-			t.Errorf("NewCorrelation(%d) = (%q, %t), want ParseCorrelation's %q", snowflake, n, ok, s)
+		if n, ok := reqid.NewCorrelation(c.EID()); !ok || n != c {
+			t.Errorf("NewCorrelation(%q) = (%q, %t), want ParseCorrelation's %q", s, n, ok, s)
 		}
 	}
 	refused := []struct{ name, in string }{
 		{"empty, which is absent", ""},
-		{"brand USR", "USR0KHTOWnGLuC"},
-		{"brand KAN", "KAN0R98RM39MWY"},
-		{"length", "COR0000000000"},
-		{"namespace", "cOR00000000000"},
-		{"charset", "COR0000000000-"},
-		{"range", "CORAzL8n0Y58m8"},
-		{"two joined by a comma", "COR0SF1bsgvgpc, COR0SCMa0vxXFZ"},
+		{"kind req", "mxe_req_23obzcbapvupu2272222"},
+		{"kind job of another system", "emq_job_23obzcbapvupu2272222"},
+		{"length", "mxe_cor_2222222222222222222"},
+		{"separator", "mxe-cor_23obzcbapvupu2272222"},
+		{"uppercase", "MXE_COR_23OBZCBAPVUPU2272222"},
+		{"alphabet", "mxe_cor_23obzcbapvupu227222-"},
+		{"pad", "mxe_cor_23obzcbapvupu2272223"},
+		{"system-reserved", "2xe_cor_23obzcbapvupu2272222"},
+		{"two joined by a comma", "mxe_cor_23obzcbapvupu2272226, mxe_cor_23obzcbapvupu2272222"},
 	}
 	for _, r := range refused {
 		if c, ok := reqid.ParseCorrelation(r.in); ok || !c.IsZero() {
@@ -62,24 +63,35 @@ func TestParseCorrelation(t *testing.T) {
 }
 
 func TestNewCorrelation(t *testing.T) {
-	c, ok := reqid.NewCorrelation(0)
-	if !ok || c.IsZero() || c.String() != "COR00000000000" {
-		t.Errorf("NewCorrelation(0) = (%q, %t), want COR00000000000, not zero, and true", c, ok)
+	cor, _ := reqid.ParseCode("cor")
+	job, _ := reqid.ParseCode("job")
+	mxe, _ := reqid.ParseCode("mxe")
+	id, err := reqid.EIDFromParts(mxe, cor, 1795271400123, 895287301, 0)
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, s := range []uint64{1 << 63, 1<<64 - 1} {
-		if c, ok := reqid.NewCorrelation(s); ok || !c.IsZero() {
-			t.Errorf("NewCorrelation(%d) = (%q, %t), want the zero Correlation and false", s, c, ok)
+	c, ok := reqid.NewCorrelation(id)
+	if !ok || c.IsZero() || c.String() != "mxe_cor_23obzcbapvupu2272222" || c.EID() != id {
+		t.Errorf("NewCorrelation(%v) = (%q, %t), want mxe_cor_23obzcbapvupu2272222, not zero, and true", id, c, ok)
+	}
+	other, _ := reqid.EIDFromParts(mxe, job, 1795271400123, 895287301, 0)
+	for name, bad := range map[string]reqid.EID{"the zero EID": {}, "a kind other than cor": other} {
+		if c, ok := reqid.NewCorrelation(bad); ok || !c.IsZero() {
+			t.Errorf("NewCorrelation(%s) = (%q, %t), want the zero Correlation and false", name, c, ok)
 		}
+	}
+	if (reqid.Correlation{}).EID() != (reqid.EID{}) {
+		t.Error("the zero Correlation holds a nonzero EID")
 	}
 }
 
 func TestCorrelationText(t *testing.T) {
-	c, _ := reqid.ParseCorrelation("COR0SCMa0vxXFZ")
+	c, _ := reqid.ParseCorrelation("mxe_cor_23obzcbapvupu2272222")
 	var zero reqid.Correlation
 	for _, row := range []struct {
 		c    reqid.Correlation
 		want string
-	}{{c, "COR0SCMa0vxXFZ"}, {zero, ""}} {
+	}{{c, "mxe_cor_23obzcbapvupu2272222"}, {zero, ""}} {
 		if got := row.c.String(); got != row.want {
 			t.Errorf("String() = %q, want %q", got, row.want)
 		}
@@ -108,20 +120,20 @@ func checkCorrelationOf(of func([]string, string) reqid.Correlation) error {
 		header  string
 		want    string
 	}{
-		{"a member among others, with a property", []string{"other=1, bcs.correlation.id=COR0SF1bsgvgpc;p=1"}, "", "COR0SF1bsgvgpc"},
-		{"baggage and header both valid", []string{"bcs.correlation.id=COR0SF1bsgvgpc"}, "COR0SCMa0vxXFZ", "COR0SF1bsgvgpc"},
-		{"an invalid member gives way to the header", []string{"bcs.correlation.id=USR0KHTOWnGLuC"}, "COR00000000000", "COR00000000000"},
+		{"a member among others, with a property", []string{"other=1, bcs.correlation.id=mxe_cor_23obzcbapvupu2272226;p=1"}, "", "mxe_cor_23obzcbapvupu2272226"},
+		{"baggage and header both valid", []string{"bcs.correlation.id=mxe_cor_23obzcbapvupu2272226"}, "mxe_cor_23obzcbapvupu2272222", "mxe_cor_23obzcbapvupu2272226"},
+		{"an invalid member gives way to the header", []string{"bcs.correlation.id=mxe_req_23obzcbapvupu2272222"}, "mxe_cor_22222222222222222222", "mxe_cor_22222222222222222222"},
 		{"nothing", nil, "", ""},
 		{"an empty value and a garbage header", []string{""}, "garbage", ""},
-		{"a longer key", []string{"bcs.correlation.idx=COR0SF1bsgvgpc"}, "", ""},
-		{"spaces and tabs around the key and the value", []string{" \tbcs.correlation.id \t=\t COR0SF1bsgvgpc \t;p"}, "", "COR0SF1bsgvgpc"},
-		{"the second Baggage value", []string{"a=1", "b=2,bcs.correlation.id=COR0SF1bsgvgpc"}, "", "COR0SF1bsgvgpc"},
-		{"the first member with the key decides", []string{"bcs.correlation.id=garbage, bcs.correlation.id=COR0SF1bsgvgpc"}, "", ""},
-		{"a member with no value", []string{"bcs.correlation.id"}, "COR0SCMa0vxXFZ", "COR0SCMa0vxXFZ"},
-		{"the header alone", nil, "COR0SCMa0vxXFZ", "COR0SCMa0vxXFZ"},
-		{"a header of another brand", nil, "USR0KHTOWnGLuC", ""},
-		{"a header of two joined by a comma", nil, "COR0SF1bsgvgpc, COR0SCMa0vxXFZ", ""},
-		{"empty members around the one", []string{",, bcs.correlation.id=COR0SF1bsgvgpc ,"}, "", "COR0SF1bsgvgpc"},
+		{"a longer key", []string{"bcs.correlation.idx=mxe_cor_23obzcbapvupu2272226"}, "", ""},
+		{"spaces and tabs around the key and the value", []string{" \tbcs.correlation.id \t=\t mxe_cor_23obzcbapvupu2272226 \t;p"}, "", "mxe_cor_23obzcbapvupu2272226"},
+		{"the second Baggage value", []string{"a=1", "b=2,bcs.correlation.id=mxe_cor_23obzcbapvupu2272226"}, "", "mxe_cor_23obzcbapvupu2272226"},
+		{"the first member with the key decides", []string{"bcs.correlation.id=garbage, bcs.correlation.id=mxe_cor_23obzcbapvupu2272226"}, "", ""},
+		{"a member with no value", []string{"bcs.correlation.id"}, "mxe_cor_23obzcbapvupu2272222", "mxe_cor_23obzcbapvupu2272222"},
+		{"the header alone", nil, "mxe_cor_23obzcbapvupu2272222", "mxe_cor_23obzcbapvupu2272222"},
+		{"a header of another brand", nil, "mxe_req_23obzcbapvupu2272222", ""},
+		{"a header of two joined by a comma", nil, "mxe_cor_23obzcbapvupu2272226, mxe_cor_23obzcbapvupu2272222", ""},
+		{"empty members around the one", []string{",, bcs.correlation.id=mxe_cor_23obzcbapvupu2272226 ,"}, "", "mxe_cor_23obzcbapvupu2272226"},
 	}
 	for _, c := range cases {
 		if got := of(c.baggage, c.header).String(); got != c.want {
@@ -178,20 +190,20 @@ func TestCorrelationOfViolation(t *testing.T) {
 
 func TestCorrelationAllocs(t *testing.T) {
 	err := checkNoAllocs(func() {
-		sinkCorrelation, sinkOK = reqid.ParseCorrelation("COR0SCMa0vxXFZ")
+		sinkCorrelation, sinkOK = reqid.ParseCorrelation("mxe_cor_23obzcbapvupu2272222")
 	})
 	if err != nil {
 		t.Errorf("ParseCorrelation: %v", err)
 	}
-	if !sinkOK || sinkCorrelation.String() != "COR0SCMa0vxXFZ" {
+	if !sinkOK || sinkCorrelation.String() != "mxe_cor_23obzcbapvupu2272222" {
 		t.Errorf("ParseCorrelation gave (%q, %t)", sinkCorrelation, sinkOK)
 	}
 
-	baggage := []string{"other=1", " k=v;p, bcs.correlation.id = COR0SF1bsgvgpc ;p=1"}
-	if err := checkNoAllocs(func() { sinkCorrelation = reqid.CorrelationOf(baggage, "COR0SCMa0vxXFZ") }); err != nil {
+	baggage := []string{"other=1", " k=v;p, bcs.correlation.id = mxe_cor_23obzcbapvupu2272226 ;p=1"}
+	if err := checkNoAllocs(func() { sinkCorrelation = reqid.CorrelationOf(baggage, "mxe_cor_23obzcbapvupu2272222") }); err != nil {
 		t.Errorf("CorrelationOf: %v", err)
 	}
-	if sinkCorrelation.String() != "COR0SF1bsgvgpc" {
+	if sinkCorrelation.String() != "mxe_cor_23obzcbapvupu2272226" {
 		t.Errorf("CorrelationOf gave %q", sinkCorrelation)
 	}
 
@@ -199,38 +211,38 @@ func TestCorrelationAllocs(t *testing.T) {
 	if err := checkNoAllocs(func() { buf, _ = sinkCorrelation.AppendText(buf[:0]) }); err != nil {
 		t.Errorf("Correlation.AppendText into a slice of capacity 64: %v", err)
 	}
-	if string(buf) != "COR0SF1bsgvgpc" {
+	if string(buf) != "mxe_cor_23obzcbapvupu2272226" {
 		t.Errorf("Correlation.AppendText wrote %q", buf)
 	}
 }
 
 // TestCorrelationOfPercentDecoded: W3C Baggage lets a producer percent-encode a byte that needs no escape, so an
-// encoded COR is the same COR; a malformed escape or a value that does not decode to 14 bytes is refused, and the
+// encoded COR is the same COR; a malformed escape or a value that does not decode to 28 bytes is refused, and the
 // header then gives the COR.
 func TestCorrelationOfPercentDecoded(t *testing.T) {
-	const header = "COR0SCMa0vxXFZ"
+	const header = "mxe_cor_23obzcbapvupu2272222"
 	for _, c := range []struct {
 		name, value, want string
 	}{
-		{"the first byte encoded", "%43OR0SF1bsgvgpc", "COR0SF1bsgvgpc"},
-		{"two bytes encoded, lowercase hex", "%43%4fR0SF1bsgvgpc", "COR0SF1bsgvgpc"},
-		{"plain", "COR0SF1bsgvgpc", "COR0SF1bsgvgpc"},
-		{"an escape cut short", "COR0SF1bsgvgp%4", header},
-		{"a bad hex digit", "%4GOR0SF1bsgvgpc", header},
-		{"15 bytes after decoding", "%43OR0SF1bsgvgpc0", header},
-		{"13 bytes after decoding", "%43OR0SF1bsgvgp", header},
-		{"an encoded byte that is not Base62", "COR0SF1bsgvg%2Fc", header},
+		{"the first byte encoded", "%6dxe_cor_23obzcbapvupu2272226", "mxe_cor_23obzcbapvupu2272226"},
+		{"two bytes encoded, lowercase hex", "%6d%78e_cor_23obzcbapvupu2272226", "mxe_cor_23obzcbapvupu2272226"},
+		{"plain", "mxe_cor_23obzcbapvupu2272226", "mxe_cor_23obzcbapvupu2272226"},
+		{"an escape cut short", "mxe_cor_23obzcbapvupu227222%3", header},
+		{"a bad hex digit", "%6Gxe_cor_23obzcbapvupu2272226", header},
+		{"29 bytes after decoding", "%6dxe_cor_23obzcbapvupu22722262", header},
+		{"27 bytes after decoding", "%6dxe_cor_23obzcbapvupu227222", header},
+		{"an encoded byte outside the alphabet", "mxe_cor_23obzcbapvupu22722%2D", header},
 	} {
 		got := reqid.CorrelationOf([]string{"bcs.correlation.id=" + c.value}, header)
 		if got.String() != c.want {
 			t.Errorf("%s: CorrelationOf(%q) = %q, want %q", c.name, c.value, got, c.want)
 		}
 	}
-	baggage := []string{"bcs.correlation.id=%43OR0SF1bsgvgpc"}
+	baggage := []string{"bcs.correlation.id=%6dxe_cor_23obzcbapvupu2272226"}
 	if err := checkNoAllocs(func() { sinkCorrelation = reqid.CorrelationOf(baggage, "") }); err != nil {
 		t.Errorf("CorrelationOf of a percent-encoded value: %v", err)
 	}
-	if sinkCorrelation.String() != "COR0SF1bsgvgpc" {
+	if sinkCorrelation.String() != "mxe_cor_23obzcbapvupu2272226" {
 		t.Errorf("CorrelationOf of a percent-encoded value gave %q", sinkCorrelation)
 	}
 }

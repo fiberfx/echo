@@ -13,8 +13,8 @@ import (
 	"testing"
 )
 
-// allowed holds context, for NewContext and FromContext, and sync/atomic, for Minter: reqid writes its hex and Base62
-// by hand, and reads no clock.
+// allowed holds context, for NewContext and FromContext, and sync/atomic, for Minter's lock: reqid writes its hex and its
+// eid text by hand, and reads no clock, no random source, no process id and no environment.
 var allowed = map[string]bool{"context": true, "sync/atomic": true}
 
 func checkImports(filename string, src any) error {

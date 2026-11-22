@@ -10,7 +10,7 @@ A patch from the second train's review. `LinesOf` keeps v6.6.0's output for a ha
 
 ## v6.7.0
 
-A request's identity can cross processes. [reqid](reqid/) mints and reads the COR value, a branded id holding a time, a node and a sequence, beside the request's own name. Two internal packages prepare an MCP endpoint; neither is in the request path yet.
+A request's identity can cross processes. [reqid](reqid/) mints and reads the COR value, an Ecd ID (eid) holding a system, a kind, a time, a writer and a count, beside the request's own name. Two internal packages prepare an MCP endpoint; neither is in the request path yet.
 
 ## v6.6.2
 

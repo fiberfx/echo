@@ -1,0 +1,12 @@
+Conformance vectors of the Ecd ID (eid), version 1, copied unchanged from the vectors/ folder of the ecd-id repository
+at commit 8518ea79bc11a25eaf66b7fae930fc70f7d5fef0 ("Rename to eid: the package, the module, the crate, the command and
+the environment"):
+
+  valid.tsv           valid ids, text and bytes both ways           (spec/id.md)
+  invalid.tsv         texts the strict parse refuses, with reasons  (spec/id.md#strict-parse)
+  binary_invalid.tsv  16-byte inputs that binary ingress refuses    (spec/id.md#strict-parse)
+  lease.tsv           lease texts and their strict parse            (spec/lease.md#the-lease)
+  mint.tsv            minter scenarios                              (spec/lease.md#minter)
+
+The rows that name the allocator's writer numbers (lease.tsv, first column "writer") and the stream mapping
+(stream.tsv) are not exercised: reqid has no allocator and no stream mapping.

@@ -76,9 +76,9 @@ func TestRequestNodeHandBuilt(t *testing.T) {
 }
 
 func TestRequestNodeViolation(t *testing.T) {
-	cor, ok := reqid.NewCorrelation(1 << 40)
+	cor, ok := reqid.ParseCorrelation("mxe_cor_23obzcbapvupu2272222")
 	if !ok {
-		t.Fatal("NewCorrelation refused the test's snowflake")
+		t.Fatal("ParseCorrelation refused the test's COR")
 	}
 	for _, bad := range []struct {
 		name string

@@ -86,7 +86,7 @@ Eight standalone packages were added from v6.2.0 to v6.5.0. They share the frame
 | `github.com/fiberfx/mx-echo/v6/server` | Serve any `http.Handler` with a caller-owned cancellation context, listener and shutdown policy, report how the stop ended and own work that outlives a request |
 | `github.com/fiberfx/mx-echo/v6/route/pattern` | Read a route pattern into its static, parameter and wildcard parts with pure functions |
 | `github.com/fiberfx/mx-echo/v6/outcome` | Classify how a request ended and decide the status of an error response with pure functions |
-| `github.com/fiberfx/mx-echo/v6/reqid` | Name a request with a small value ordered by time, parse an incoming `traceparent`, and mint and read branded ids and the COR correlation value |
+| `github.com/fiberfx/mx-echo/v6/reqid` | Name a request with a small value ordered by time, parse an incoming `traceparent`, and mint and read Ecd IDs (eids), the COR correlation value among them |
 | `github.com/fiberfx/mx-echo/v6/observe` | Describe one finished request as a value, write it as JSON and hand it to a sink |
 | `github.com/fiberfx/mx-echo/v6/observe/stdhttp` | Name and observe the requests of any `http.Handler`, with the standard mux's pattern |
 | `github.com/fiberfx/mx-echo/v6/fibervisor` | Read the attempt the fv supervisor gave the process, state the build, and write observations as JSON lines |

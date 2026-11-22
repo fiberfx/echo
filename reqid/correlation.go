@@ -10,32 +10,34 @@ const (
 	CorrelationMeta       = "x-correlation-id"   // the key in an MCP message's params._meta
 )
 
-// correlationNS is the namespace of a COR id.
-const correlationNS = "COR"
+// corKind is the kind of a COR id.
+var corKind, _ = ParseCode("cor")
 
-// Correlation is a COR id, the flow a request belongs to: a branded id of namespace COR, kept as its 14 bytes. It is
-// comparable, and never a request's name. The zero Correlation means "none".
-type Correlation struct{ b [14]byte }
+// Correlation is a COR id, the flow a request belongs to: an eid of kind cor, from any system, a detached one
+// included. It is comparable, and never a request's name. The zero Correlation means "none"; the zero EID is not a
+// valid id, so no COR is equal to it.
+type Correlation struct{ id EID }
 
-// ParseCorrelation reads a COR id: a branded id that DecodeBranded accepts, of namespace COR. It reports false for an
-// empty value, which is absent, and for a malformed one or one of another namespace.
+// ParseCorrelation reads a COR id: an eid that ParseEID accepts, of kind cor. It reports false for an empty value,
+// which is absent, for a malformed one and for one of another kind. It allocates nothing.
 func ParseCorrelation(s string) (Correlation, bool) {
-	if ns, _, class := DecodeBranded(s); class != "" || ns != correlationNS {
+	id, err := ParseEID(s)
+	if err != nil || id.Kind() != corKind {
 		return Correlation{}, false
 	}
-	var c Correlation
-	copy(c.b[:], s)
-	return c, true
+	return Correlation{id}, true
 }
 
-// NewCorrelation returns the COR id of a snowflake. It reports false when the snowflake is 2^63 or more.
-func NewCorrelation(snowflake uint64) (Correlation, bool) {
-	var c Correlation
-	if !encodeBranded(&c.b, correlationNS, snowflake) {
+// NewCorrelation returns the COR of id. It reports false unless id is a valid eid of kind cor.
+func NewCorrelation(id EID) (Correlation, bool) {
+	if checked, err := checkEID(id); err != nil || checked.Kind() != corKind {
 		return Correlation{}, false
 	}
-	return c, true
+	return Correlation{id}, true
 }
+
+// EID returns the COR's id; the zero EID for the zero Correlation.
+func (c Correlation) EID() EID { return c.id }
 
 // CorrelationOf is the one rule that reads a request's COR from HTTP, given the request's Baggage header values in
 // order and its X-Correlation-ID header: the first Baggage member whose key is CorrelationBaggageKey gives the COR
@@ -48,7 +50,7 @@ func CorrelationOf(baggage []string, header string) Correlation {
 			return c
 		}
 	} else {
-		var b [14]byte
+		var b [TextLen]byte
 		if percentDecode(&b, value) {
 			if c, ok := ParseCorrelation(string(b[:])); ok {
 				return c
@@ -61,7 +63,7 @@ func CorrelationOf(baggage []string, header string) Correlation {
 
 // percentDecode decodes s, a Baggage value, into b, each %XX as the byte of its two hex digits. It reports false for
 // a malformed escape and for a result that is not exactly len(b) bytes long.
-func percentDecode(b *[14]byte, s string) bool {
+func percentDecode(b *[TextLen]byte, s string) bool {
 	n := 0
 	for i := 0; i < len(s); i++ {
 		c := s[i]
@@ -128,12 +130,12 @@ func (c Correlation) IsZero() bool {
 	return c == Correlation{}
 }
 
-// String returns the 14 bytes of the id, or "" for the zero Correlation.
+// String returns the 28 characters of the id, or "" for the zero Correlation.
 func (c Correlation) String() string {
 	if c.IsZero() {
 		return ""
 	}
-	return string(c.b[:])
+	return c.id.String()
 }
 
 // AppendText appends String's text without allocating; the error is always nil.
@@ -141,13 +143,14 @@ func (c Correlation) AppendText(b []byte) ([]byte, error) {
 	if c.IsZero() {
 		return b, nil
 	}
-	return append(b, c.b[:]...), nil
+	t := c.id.Encode()
+	return append(b, t[:]...), nil
 }
 
 // MarshalText returns String's text, so that encoding/json and log/slog's JSON handler write the id and not {};
 // the error is always nil.
 func (c Correlation) MarshalText() ([]byte, error) {
-	return c.AppendText(make([]byte, 0, len(c.b)))
+	return c.AppendText(make([]byte, 0, TextLen))
 }
 
 // indexByte returns the index of the first c in s, or -1.

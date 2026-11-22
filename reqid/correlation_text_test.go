@@ -19,8 +19,8 @@ var _ encoding.TextUnmarshaler = (*reqid.Correlation)(nil)
 // it, empty text is read as the zero Correlation, and every other text that is not a COR returns an error and leaves
 // the Correlation as it was.
 func checkUnmarshalText(unmarshal func(*reqid.Correlation, []byte) error) error {
-	old, _ := reqid.ParseCorrelation("COR0SF1bsgvgpc")
-	for _, s := range []string{"COR0SCMa0vxXFZ", "COR00000000000", "CORAzL8n0Y58m7", ""} {
+	old, _ := reqid.ParseCorrelation("mxe_cor_23obzcbapvupu2272226")
+	for _, s := range []string{"mxe_cor_23obzcbapvupu2272222", "mxe_cor_22222222222222222222", "zzz_cor_bzzzzzzzzzzzzzzzzzzw", ""} {
 		c := old
 		want, _ := reqid.ParseCorrelation(s)
 		if err := unmarshal(&c, []byte(s)); err != nil || c != want {
@@ -28,11 +28,11 @@ func checkUnmarshalText(unmarshal func(*reqid.Correlation, []byte) error) error 
 		}
 	}
 	refused := []struct{ name, in string }{
-		{"13 bytes", "COR0000000000"},
-		{"a lowercase namespace", "cOR00000000000"},
-		{"brand USR", "USR0KHTOWnGLuC"},
-		{"charset", "COR0000000000-"},
-		{"range", "CORAzL8n0Y58m8"},
+		{"27 bytes", "mxe_cor_2222222222222222222"},
+		{"an uppercase text", "MXE_COR_23OBZCBAPVUPU2272222"},
+		{"kind req", "mxe_req_23obzcbapvupu2272222"},
+		{"alphabet", "mxe_cor_23obzcbapvupu227222-"},
+		{"pad", "mxe_cor_23obzcbapvupu2272223"},
 	}
 	for _, r := range refused {
 		c := old
@@ -102,9 +102,9 @@ func TestCorrelationTextRoundTrip(t *testing.T) {
 		Correlation reqid.Correlation `json:"correlation"`
 	}
 	in := record{}
-	in.Correlation, _ = reqid.ParseCorrelation("COR0SCMa0vxXFZ")
+	in.Correlation, _ = reqid.ParseCorrelation("mxe_cor_23obzcbapvupu2272222")
 	data, err := json.Marshal(in)
-	if err != nil || string(data) != `{"correlation":"COR0SCMa0vxXFZ"}` {
+	if err != nil || string(data) != `{"correlation":"mxe_cor_23obzcbapvupu2272222"}` {
 		t.Fatalf("json.Marshal = (%s, %v), want the COR as a string", data, err)
 	}
 	var out record
@@ -121,14 +121,14 @@ func TestCorrelationTextRoundTrip(t *testing.T) {
 		t.Errorf("json.Unmarshal(%s) = (%+v, %v), want the zero Correlation", data, back, err)
 	}
 	kept := out
-	if err := json.Unmarshal([]byte(`{"correlation":"cOR0SCMa0vxXFZ"}`), &out); err == nil || out != kept {
+	if err := json.Unmarshal([]byte(`{"correlation":"MXE_COR_23OBZCBAPVUPU2272222"}`), &out); err == nil || out != kept {
 		t.Errorf("json.Unmarshal of a lowercase namespace = (%+v, %v), want %+v and an error", out, err, kept)
 	}
 
 	flags := flag.NewFlagSet("cor", flag.ContinueOnError)
 	var c reqid.Correlation
 	flags.TextVar(&c, "cor", reqid.Correlation{}, "the COR id")
-	if err := flags.Parse([]string{"-cor", "COR0SF1bsgvgpc"}); err != nil || c.String() != "COR0SF1bsgvgpc" {
-		t.Errorf("flag.TextVar read (%q, %v), want COR0SF1bsgvgpc", c, err)
+	if err := flags.Parse([]string{"-cor", "mxe_cor_23obzcbapvupu2272226"}); err != nil || c.String() != "mxe_cor_23obzcbapvupu2272226" {
+		t.Errorf("flag.TextVar read (%q, %v), want mxe_cor_23obzcbapvupu2272226", c, err)
 	}
 }

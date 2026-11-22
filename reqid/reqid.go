@@ -2,11 +2,14 @@
 // SPDX-FileCopyrightText: © 2015 LabStack LLC and Echo contributors
 
 // Package reqid holds a request's name as a value, an incoming traceparent as a link beside it, and the COR id of the
-// flow the request belongs to, in the branded-id contract of echo_data native.
+// flow the request belongs to. The COR is an Ecd ID (eid): 16 bytes of system, kind, time, writer and count, written as
+// 28 lowercase characters, whose layout and strict parse are those of the ecd-id repository's spec/id.md. The package
+// parses and writes an eid, parses a lease, and mints ids on a lease with a Minter, or detached with NewDetached.
 //
 // The package is pure: it imports only context, for NewContext and FromContext, and sync/atomic, for Minter, and reads
-// neither a clock nor a random source. Whoever names a request gives New the time and the random number, and whoever
-// mints a COR gives NewMinter the clock.
+// neither a clock, a random source, a process id nor the environment. Whoever names a request gives New the time and
+// the random number; whoever mints gives NewMinter or NewDetached the clock, the process id and, detached, the random
+// source, and reads the lease from the environment variable named LeaseEnv.
 package reqid
 
 const hexDigits = "0123456789abcdef"

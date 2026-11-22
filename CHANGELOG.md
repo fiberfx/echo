@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Changed, breaking: `reqid` ids are Ecd IDs (eids) and nothing else; the branded-id contract of v6.7.0 is removed, with no compatibility path. An eid is 16 bytes of system, kind, time, writer and count, written as 28 lowercase characters such as `mxe_cor_23obzcbapvupu2272222`; its layout and strict parse are those of `spec/id.md` of the ecd-id repository. `EncodeBranded`, `DecodeBranded`, `BrandedUnixMilli`, `NodeFrom`, `Minter.Next` and `NewMinter(node, clock)` are gone.
+- Added `reqid.EID` with `ParseEID`, `EIDFromBytes` and `EIDFromParts`, which refuse with a named `Refusal` (`length`, `separator`, `alphabet`, `pad`, `reserved`, `system-reserved`, `kind`, `range`); `Code` and `ParseCode` for a system code or a kind; `Lease`, `NewLease` and `ParseLease` for the lease text of `EID_LEASE` (`LeaseEnv`), with `lease-syntax`, `lease-system`, `lease-writer` and `lease-window`.
+- `reqid.NewMinter(lease, clock, pids)` returns a `Minter` that mints on a lease with an injected `Clock` and `PidSource`: the time never goes back, a burst borrows the next millisecond, no id is stamped outside the lease (`lease-ended`), a minter made under another process id refuses (`fork`), and `Switch` takes a fresh lease. `reqid.NewDetached(random, clock, pids)` mints with no lease, on a detached system code and a random writer, and draws a new writer at half its 24-hour window. A failed random source is `random`: there is no fallback. `reqid` still imports only `context` and `sync/atomic`.
+- `reqid.Correlation` is an eid of kind `cor`, from any system, a detached one included. `ParseCorrelation` and `UnmarshalText` accept that text only, `NewCorrelation` takes an `EID`, `Correlation.EID` returns it, and `Minter.Correlation` mints one. The four carrier names, `CorrelationOf` and its Baggage and header rule are unchanged. The text is 28 bytes, not 14.
+- Conformance: the vectors of ecd-id at 8518ea7 (`reqid/testdata/eid`) are read both ways, and every invalid row is refused with its reason.
+
 ## MX Echo v6.8.0
 
 - README rewritten; its Go examples are compiled by the test suite (`readme_example_test.go`).
