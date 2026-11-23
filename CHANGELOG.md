@@ -1,5 +1,11 @@
 # Changelog
 
+## MX Echo v6.10.0 — 2026-11-23
+
+- Added: `reqid.ReadCorrelation(baggage, header)` returns a `CorrelationRead`: the COR, the carrier that gave it (`CorrelationSource`: `CorrelationFromNone`, `CorrelationFromBaggage`, `CorrelationFromHeader`) and, for each carrier, why it gave or did not give one (`CorrelationReason`: `ReasonOK`, `ReasonAbsent`, `ReasonEscape`, `ReasonCorKind`, `ReasonCorSystem`, or the name of the strict-parse `Refusal`: length, separator, alphabet, pad, reserved, system-reserved, kind). It allocates nothing. A decoded Baggage value of the wrong length is `length`, and a malformed percent escape is `escape`.
+- Changed: `CorrelationOf` is `ReadCorrelation(...).Correlation`, so there is one implementation of the rule; its result is unchanged.
+- Added: the vector table of the COR ingress rule, `reqid/testdata/correlation/correlation_of.tsv` (47 rows), is canonical in this module, and `TestCorrelationVectors` holds `ReadCorrelation` and `CorrelationOf` to it.
+
 ## MX Echo v6.9.2 — 2026-11-23
 
 - Fixed: earlier versions accepted a COR of any registered system, which the registry does not allow. `reqid.Correlation` is an eid of kind `cor` from a detached-class system, or from a registered system that has a live `cor` row in the ecd-id registry, which today is `mxe` alone. `ParseCorrelation`, `NewCorrelation`, `UnmarshalText`, `CorrelationOf` (Baggage, header, environment and `_meta` alike) and `Minter.Correlation` apply that one rule and refuse a COR of any other registered system, `ecd` and the retired `brd` among them; a minter on such a system returns the zero Correlation.

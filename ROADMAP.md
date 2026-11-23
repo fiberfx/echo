@@ -1,5 +1,9 @@
 # MX Echo roadmap
 
+## v6.10.0
+
+`reqid.ReadCorrelation` reports the COR with its carrier and, for each carrier, the reason it gave or refused one. The vector table of the COR ingress rule is canonical in `reqid/testdata/correlation`.
+
 ## v6.9.2
 
 A COR is accepted only from a detached-class system or from a registered system with a live `cor` row in the ecd-id registry (`mxe` today). The `mxdb` client reports reject codes and retries an update only when its request was not fully written.
