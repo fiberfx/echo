@@ -1,5 +1,9 @@
 # MX Echo roadmap
 
+## v6.11.0
+
+[ownerstore](ownerstore/) keeps a service's state in one SQLite file under Ecd ID keys, with the four outcomes of a write, a changefeed and durability classes D1 and D2. Package `mxdb`, the Go client of the mxdb sidecar, is removed from the module.
+
 ## v6.10.0
 
 `reqid.ReadCorrelation` reports the COR with its carrier and, for each carrier, the reason it gave or refused one. The vector table of the COR ingress rule is canonical in `reqid/testdata/correlation`.

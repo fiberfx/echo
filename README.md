@@ -6,12 +6,12 @@
 
 MX Echo is a Go HTTP framework derived from LabStack Echo v5.4.6, with the v5.4.7 fixes adapted to v6. Its router, middleware and request-test helpers ship together as one module, `github.com/fiberfx/mx-echo/v6`. Beside the framework, the module holds standalone packages for typed binding, server lifecycle, route patterns, request outcomes, request names and observation. They use no Echo type, so any `http.Handler` can use them. A service that the fv supervisor holds can opt into the `fibervisor` package to state its attempt, name its requests in fv's terms and report how it stopped. Each feature added since v6.3.0 is opt-in: with none of them used, the request path and every default stay as they were.
 
-The minimum Go version is **1.27.4**. The latest release is **v6.10.0**.
+The minimum Go version is **1.27.4**. The latest release is **v6.11.0**.
 
 ## Install
 
 ```sh
-go get github.com/fiberfx/mx-echo/v6@v6.10.0
+go get github.com/fiberfx/mx-echo/v6@v6.11.0
 ```
 
 After adding imports such as `middleware`, run `go mod tidy` in the application to record the dependencies its packages use.
@@ -77,7 +77,7 @@ Fibervisor's responses service composes an Echo router with the same lifecycle t
 
 ## Packages
 
-Eight standalone packages were added from v6.2.0 to v6.5.0. They share the framework's module and version, and [examples/reference](examples/reference/) composes them with no Echo type.
+Eight standalone packages were added from v6.2.0 to v6.5.0, and `ownerstore` in v6.11.0. They share the framework's module and version, and [examples/reference](examples/reference/) composes them with no Echo type.
 
 | Import | Responsibility |
 | --- | --- |
@@ -87,6 +87,7 @@ Eight standalone packages were added from v6.2.0 to v6.5.0. They share the frame
 | `github.com/fiberfx/mx-echo/v6/route/pattern` | Read a route pattern into its static, parameter and wildcard parts with pure functions |
 | `github.com/fiberfx/mx-echo/v6/outcome` | Classify how a request ended and decide the status of an error response with pure functions |
 | `github.com/fiberfx/mx-echo/v6/reqid` | Name a request with a small value ordered by time, parse an incoming `traceparent`, and mint and read Ecd IDs (eids), the COR correlation value among them |
+| `github.com/fiberfx/mx-echo/v6/ownerstore` | Keep a service's state in one SQLite file under Ecd ID keys, with the four outcomes of a write (committed, conflict, refused, unknown), a changefeed, durability classes D1 and D2 and one owner at a time |
 | `github.com/fiberfx/mx-echo/v6/observe` | Describe one finished request as a value, write it as JSON and hand it to a sink |
 | `github.com/fiberfx/mx-echo/v6/observe/stdhttp` | Name and observe the requests of any `http.Handler`, with the standard mux's pattern |
 | `github.com/fiberfx/mx-echo/v6/fibervisor` | Read the attempt the fv supervisor gave the process, state the build, and write observations as JSON lines |
