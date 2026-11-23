@@ -16,15 +16,17 @@
 #                non-test files read no clock, environment, process id or random source
 #   conformance  the Ecd ID vectors (reqid/testdata/eid) are read both ways, every invalid row is refused with its reason
 #   legacy-free  no file of the tree names the removed id scheme (its package, its text form, its radix or its encoder)
-#                outside CHANGELOG.md and the vendored registry copy systems.tsv (which names retired brd by its old
+#                outside CHANGELOG.md and the vendored registry copy reqid/testdata/eid/systems.tsv (which names retired brd by its old
 #                name); the pattern is built from pieces so that this file does not name it
 #   cor-systems  a COR is accepted only from a detached-class system or from a registered system with a live cor row (today
 #                mxe): ecd and brd are refused, mxe and detached are accepted, and the compiled set equals the one derived
-#                from the vendored registry (reqid/testdata/eid/systems.tsv, kinds.tsv)
+#                from the vendored registry (reqid/testdata/eid/systems.tsv, kinds.tsv), and a minter on an emq lease mints no COR
 #   mutant-pad   a copy whose pad check is wrong (last&3 becomes last&2) turns TestEIDVectorsInvalid red
 #   mutant-count a copy whose minter does not count (count = m.count + 1 becomes count = 0) turns TestEIDVectorsMint red
 #   mutant-cor   a copy whose COR system check accepts every system (if system.Class() == Detached becomes if true) turns
 #                TestEcdCorRefused red
+#   mutant-mint-cor  a copy whose Minter.Correlation skips the COR system check (err != nil || !checkCorrelation(id) becomes
+#                err != nil) turns TestMinterCorRefused red
 # Exit 0 only when every row passed.
 set -u
 cd /w || exit 2
@@ -104,11 +106,11 @@ n=$(grep -c '^--- PASS' /tmp/conf.log)
 row "conformance: the Ecd ID vectors, both ways, refusals with reasons" $r "$s"
 
 s=$(date +%s)
-go test -count=1 -v -run '^(TestEcdCorRefused|TestBrdCorRefused|TestMxeCorAccepted|TestDetachedCorAccepted|TestCorSystemsMatchRegistry)$' ./reqid/ >/tmp/cor.log 2>&1
+go test -count=1 -v -run '^(TestEcdCorRefused|TestBrdCorRefused|TestMxeCorAccepted|TestDetachedCorAccepted|TestCorSystemsMatchRegistry|TestMinterCorRefused)$' ./reqid/ >/tmp/cor.log 2>&1
 r=$?
 grep -E '^(--- |ok|FAIL)|_test.go:[0-9]+:' /tmp/cor.log | cut -c1-300 | head -30
 n=$(grep -c '^--- PASS' /tmp/cor.log)
-[ "$n" = 5 ] || { echo "cor-systems: $n of 5 tests passed"; r=1; }
+[ "$n" = 6 ] || { echo "cor-systems: $n of 6 tests passed"; r=1; }
 row "cor-systems: a COR only from a detached-class or live-cor registered system" $r "$s"
 
 s=$(date +%s)
@@ -116,7 +118,7 @@ old='brd''14|brand''ed|Encode''Bran''ded|Base''62'
 hits=$(grep -r -n -i -E "$old" --exclude=CHANGELOG.md --exclude=systems.tsv --exclude-dir=inputs --exclude-dir=rows --exclude-dir=.git . | cut -c1-200 | head)
 [ -n "$hits" ] && echo "$hits"
 [ -z "$hits" ]
-row "legacy-free: the removed id scheme is named nowhere outside CHANGELOG.md" $? "$s"
+row "legacy-free: the removed id scheme is named nowhere outside CHANGELOG.md and the vendored systems.tsv" $? "$s"
 
 # mutant FILE FROM TO NAME TESTRE: a copy of the tree with one line of FILE changed must turn the named test red,
 # and the change must be exactly one line.
@@ -141,6 +143,7 @@ mutant() {
 mutant reqid/eid.go 'if last\&3 != 0 {' 'if last\&2 != 0 {' mutant-pad TestEIDVectorsInvalid
 mutant reqid/eid_mint.go 'count = m.count + 1' 'count = 0' mutant-count TestEIDVectorsMint
 mutant reqid/correlation.go 'if system.Class() == Detached {' 'if true {' mutant-cor TestEcdCorRefused
+mutant reqid/eid_mint.go 'if err != nil || !checkCorrelation(id) {' 'if err != nil {' mutant-mint-cor TestMinterCorRefused
 
 echo "total $(($(date +%s) - t0)) s"
 if [ $fails = 0 ]; then echo "RESULT PASS"; exit 0; fi

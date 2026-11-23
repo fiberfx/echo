@@ -44,13 +44,13 @@ func checkCorrelation(id EID) bool {
 
 // Correlation is a COR id, the flow a request belongs to: an eid of kind cor from a detached-class system or from a
 // registered system that has a live cor row in the ecd-id registry (today mxe alone; a COR of any other registered
-// system, brd and ecd among them, is refused). It is comparable, and never a request's name. The zero Correlation means "none"; the zero EID is not a
-// valid id, so no COR is equal to it.
+// system, brd and ecd among them, is refused). It is comparable, and never a request's name. The zero Correlation
+// means "none"; the zero EID is not a valid id, so no COR is equal to it.
 type Correlation struct{ id EID }
 
 // ParseCorrelation reads a COR id: an eid that ParseEID accepts, of kind cor. It reports false for an empty value,
-// which is absent, for a malformed one, for one of another kind and for one of a system that
-// may not issue a COR. It allocates nothing.
+// which is absent, for a malformed one, for one of another kind and for one of a system that may not issue a COR. It
+// allocates nothing.
 func ParseCorrelation(s string) (Correlation, bool) {
 	id, err := ParseEID(s)
 	if err != nil || !checkCorrelation(id) {

@@ -177,10 +177,11 @@ func (m *Minter) switchTo(lease Lease) {
 }
 
 // Correlation mints a COR: an id of kind cor, from the minter's system, detached or registered. It returns the zero
-// Correlation, which means none, when Mint refuses; use Mint for the reason.
+// Correlation, which means none, when Mint refuses and when the minter's system may not issue a COR (a registered
+// system without a live cor row); use Mint for the reason of the first.
 func (m *Minter) Correlation() Correlation {
 	id, err := m.Mint(corKind)
-	if err != nil {
+	if err != nil || !checkCorrelation(id) {
 		return Correlation{}
 	}
 	return Correlation{id}

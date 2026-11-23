@@ -125,3 +125,33 @@ func TestCorSystemsMatchRegistry(t *testing.T) {
 		}
 	}
 }
+
+func TestMinterCorRefused(t *testing.T) {
+	clock := &testClock{}
+	clock.ms.Store(1795271400123)
+	emq := reqid.NewMinter(testLease(t, "emq:895287301:1795271400000:1795357800000"), clock, newPid(1))
+	if c := emq.Correlation(); !c.IsZero() {
+		t.Errorf("a minter on an emq lease gave the COR %q, want the zero Correlation: emq has no live cor row", c)
+	}
+	if id, err := emq.Mint(mustCode(t, "cor")); err != nil || id.System().String() != "emq" {
+		t.Fatalf("Mint(cor) on an emq lease = (%v, %v), want an emq id, so the zero Correlation is the rule's refusal", id, err)
+	}
+	random := &scriptedRandom{chunks: [][]byte{codeDrawn3ab, writerDrawn}}
+	detached, err := reqid.NewDetached(random, clock, newPid(7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, m := range map[string]*reqid.Minter{
+		"an mxe lease":      reqid.NewMinter(testLease(t, "mxe:895287301:1795271400000:1795357800000"), clock, newPid(1)),
+		"a detached minter": detached,
+	} {
+		c := m.Correlation()
+		if c.IsZero() {
+			t.Errorf("%s gave the zero Correlation, want a COR", name)
+			continue
+		}
+		if back, ok := reqid.ParseCorrelation(c.String()); !ok || back != c {
+			t.Errorf("%s: the COR %q does not parse back: (%q, %t)", name, c, back, ok)
+		}
+	}
+}
