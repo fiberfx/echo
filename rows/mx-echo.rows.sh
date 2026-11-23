@@ -21,10 +21,14 @@
 #   cor-systems  a COR is accepted only from a detached-class system or from a registered system with a live cor row (today
 #                mxe): ecd and brd are refused, mxe and detached are accepted, and the compiled set equals the one derived
 #                from the vendored registry (reqid/testdata/eid/systems.tsv, kinds.tsv), and a minter on an emq lease mints no COR
+#   read-correlation  ReadCorrelation gives the COR, its carrier and a reason for each carrier (ok, absent, escape, each strict-parse
+#                refusal, cor-kind, cor-system) without allocating, and CorrelationOf is its Correlation
 #   mutant-pad   a copy whose pad check is wrong (last&3 becomes last&2) turns TestEIDVectorsInvalid red
 #   mutant-count a copy whose minter does not count (count = m.count + 1 becomes count = 0) turns TestEIDVectorsMint red
 #   mutant-cor   a copy whose COR system check accepts every system (if system.Class() == Detached becomes if true) turns
 #                TestEcdCorRefused red
+#   mutant-reason  a copy whose ReadCorrelation names a refused system another reason (return EID{}, ReasonCorSystem becomes
+#                return EID{}, ReasonCorKind) turns TestReadCorrelation red
 #   mutant-mint-cor  a copy whose Minter.Correlation skips the COR system check (err != nil || !checkCorrelation(id) becomes
 #                err != nil) turns TestMinterCorRefused red
 # Exit 0 only when every row passed.
@@ -114,6 +118,14 @@ n=$(grep -c '^--- PASS' /tmp/cor.log)
 row "cor-systems: a COR only from a detached-class or live-cor registered system" $r "$s"
 
 s=$(date +%s)
+go test -count=1 -v -run '^(TestReadCorrelation|TestReadCorrelationAbsent|TestReadCorrelationEscapeAndLength|TestReadCorrelationCarriers|TestReadCorrelationSourceNames|TestReadCorrelationAllocs)$' ./reqid/ >/tmp/read.log 2>&1
+r=$?
+grep -E '^(--- |ok|FAIL)|_test.go:[0-9]+:' /tmp/read.log | cut -c1-300 | head -30
+n=$(grep -c '^--- PASS' /tmp/read.log)
+[ "$n" = 6 ] || { echo "read-correlation: $n of 6 tests passed"; r=1; }
+row "read-correlation: a COR with its carrier and a reason per carrier, no allocation" $r "$s"
+
+s=$(date +%s)
 old='brd''14|brand''ed|Encode''Bran''ded|Base''62'
 hits=$(grep -r -n -i -E "$old" --exclude=CHANGELOG.md --exclude=systems.tsv --exclude-dir=inputs --exclude-dir=rows --exclude-dir=.git . | cut -c1-200 | head)
 [ -n "$hits" ] && echo "$hits"
@@ -143,6 +155,7 @@ mutant() {
 mutant reqid/eid.go 'if last\&3 != 0 {' 'if last\&2 != 0 {' mutant-pad TestEIDVectorsInvalid
 mutant reqid/eid_mint.go 'count = m.count + 1' 'count = 0' mutant-count TestEIDVectorsMint
 mutant reqid/correlation.go 'if system.Class() == Detached {' 'if true {' mutant-cor TestEcdCorRefused
+mutant reqid/correlation.go 'return EID{}, ReasonCorSystem' 'return EID{}, ReasonCorKind' mutant-reason TestReadCorrelation
 mutant reqid/eid_mint.go 'if err != nil || !checkCorrelation(id) {' 'if err != nil {' mutant-mint-cor TestMinterCorRefused
 
 echo "total $(($(date +%s) - t0)) s"

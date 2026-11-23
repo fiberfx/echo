@@ -70,53 +70,138 @@ func NewCorrelation(id EID) (Correlation, bool) {
 // EID returns the COR's id; the zero EID for the zero Correlation.
 func (c Correlation) EID() EID { return c.id }
 
+// CorrelationSource names the carrier that gave a COR.
+type CorrelationSource uint8
+
+// The carriers a COR is read from; CorrelationFromNone is the source of the zero Correlation.
+const (
+	CorrelationFromNone CorrelationSource = iota
+	CorrelationFromBaggage
+	CorrelationFromHeader
+)
+
+func (s CorrelationSource) String() string {
+	switch s {
+	case CorrelationFromBaggage:
+		return "baggage"
+	case CorrelationFromHeader:
+		return "header"
+	}
+	return "none"
+}
+
+// CorrelationReason is why a carrier gave, or did not give, a COR: ok, absent, escape, cor-kind, cor-system, or the
+// name of the Refusal of the strict parse (length, separator, alphabet, pad, reserved, system-reserved, kind).
+type CorrelationReason string
+
+// The reasons that are not a Refusal of the strict parse.
+const (
+	ReasonOK        CorrelationReason = "ok"         // the carrier holds a valid COR
+	ReasonAbsent    CorrelationReason = "absent"     // the carrier holds no value
+	ReasonEscape    CorrelationReason = "escape"     // a percent escape of the Baggage value is malformed
+	ReasonCorKind   CorrelationReason = "cor-kind"   // a valid eid of a kind other than cor
+	ReasonCorSystem CorrelationReason = "cor-system" // a valid cor of a system that may not issue a COR
+)
+
+// CorrelationRead is what ReadCorrelation found: the COR, the carrier that gave it, and the reason for each carrier.
+type CorrelationRead struct {
+	Correlation Correlation       // the Baggage COR if Baggage is ok, else the header COR if Header is ok, else zero
+	Source      CorrelationSource // the carrier of Correlation; CorrelationFromNone when it is zero
+	Baggage     CorrelationReason // why the Baggage member gave, or did not give, a COR
+	Header      CorrelationReason // why the header gave, or did not give, a COR
+}
+
+// ReadCorrelation is CorrelationOf with its reasons: it reads both carriers, the first Baggage member whose key is
+// CorrelationBaggageKey (its value without properties, trimmed of spaces and tabs and percent-decoded as W3C Baggage
+// allows) and the header, and reports for each why it did or did not give a COR. The Baggage COR wins over the
+// header's. A decoded value that is not an eid text long is refused as length, and a malformed percent escape as
+// escape. It allocates nothing.
+func ReadCorrelation(baggage []string, header string) CorrelationRead {
+	var r CorrelationRead
+	var bag, hdr EID
+	value := baggageValue(baggage, CorrelationBaggageKey)
+	switch {
+	case value == "":
+		r.Baggage = ReasonAbsent
+	case indexByte(value, '%') < 0:
+		bag, r.Baggage = readCOR(value)
+	default:
+		var b [TextLen]byte
+		if n, ok := percentDecode(&b, value); !ok {
+			r.Baggage = ReasonEscape
+		} else if n != len(b) {
+			r.Baggage = CorrelationReason(ErrLength)
+		} else {
+			bag, r.Baggage = readCOR(string(b[:]))
+		}
+	}
+	if header == "" {
+		r.Header = ReasonAbsent
+	} else {
+		hdr, r.Header = readCOR(header)
+	}
+	switch {
+	case r.Baggage == ReasonOK:
+		r.Correlation, r.Source = Correlation{bag}, CorrelationFromBaggage
+	case r.Header == ReasonOK:
+		r.Correlation, r.Source = Correlation{hdr}, CorrelationFromHeader
+	}
+	return r
+}
+
+// readCOR is the strict parse of s, a non-empty value, with the COR rule: the id and the reason.
+func readCOR(s string) (EID, CorrelationReason) {
+	id, err := ParseEID(s)
+	if err != nil {
+		if refusal, ok := err.(Refusal); ok {
+			return EID{}, CorrelationReason(refusal)
+		}
+		return EID{}, CorrelationReason(err.Error())
+	}
+	switch {
+	case id.Kind() != corKind:
+		return EID{}, ReasonCorKind
+	case !corSystemOK(id):
+		return EID{}, ReasonCorSystem
+	}
+	return id, ReasonOK
+}
+
 // CorrelationOf is the one rule that reads a request's COR from HTTP, given the request's Baggage header values in
 // order and its X-Correlation-ID header: the first Baggage member whose key is CorrelationBaggageKey gives the COR
 // when its value, without properties, trimmed of spaces and tabs and percent-decoded as W3C Baggage allows, is a valid
 // COR; else the header gives it when it is one; else the zero Correlation. A caller passes r.Header.Values("Baggage")
-// and r.Header.Get(CorrelationHeader). It allocates nothing.
+// and r.Header.Get(CorrelationHeader). It is ReadCorrelation's Correlation, and allocates nothing.
 func CorrelationOf(baggage []string, header string) Correlation {
-	if value := baggageValue(baggage, CorrelationBaggageKey); indexByte(value, '%') < 0 {
-		if c, ok := ParseCorrelation(value); ok {
-			return c
-		}
-	} else {
-		var b [TextLen]byte
-		if percentDecode(&b, value) {
-			if c, ok := ParseCorrelation(string(b[:])); ok {
-				return c
-			}
-		}
-	}
-	c, _ := ParseCorrelation(header)
-	return c
+	return ReadCorrelation(baggage, header).Correlation
 }
 
-// percentDecode decodes s, a Baggage value, into b, each %XX as the byte of its two hex digits. It reports false for
-// a malformed escape and for a result that is not exactly len(b) bytes long.
-func percentDecode(b *[TextLen]byte, s string) bool {
+// percentDecode decodes s, a Baggage value, into b, each %XX as the byte of its two hex digits, and returns the length
+// of the decoded value, which is the number of bytes written to b only when it does not exceed len(b). It reports false
+// for a malformed escape, wherever it stands, and true otherwise, so that a caller tells a malformed escape from a
+// decoded value of the wrong length.
+func percentDecode(b *[TextLen]byte, s string) (int, bool) {
 	n := 0
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		if c == '%' {
 			if i+2 >= len(s) {
-				return false
+				return 0, false
 			}
 			hi, okHi := hexValue(s[i+1])
 			lo, okLo := hexValue(s[i+2])
 			if !okHi || !okLo {
-				return false
+				return 0, false
 			}
 			c = hi<<4 | lo
 			i += 2
 		}
-		if n == len(b) {
-			return false
+		if n < len(b) {
+			b[n] = c
 		}
-		b[n] = c
 		n++
 	}
-	return n == len(b)
+	return n, true
 }
 
 // hexValue returns the value of the hex digit c, either case.
