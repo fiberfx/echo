@@ -1,0 +1,32 @@
+# Conformance rows for an adapter of the stores of ecd, from specs/ecd_stores/ecd_stores.contract.md#conformance (class, open, feed and handoff
+# rows) with the SQLite owner's specifics from ecd_stores.design.md (#state-schema, #durability). Outcome vectors are in outcomes.tsv.
+# Every adapter in every runtime passes every row whose status is required. Columns are separated by one tab; "-" stands for an absent value.
+#   check      a unique row name
+#   class      the durability class the row applies to: D0 | D1 | D2 | D3, or "any"
+#   procedure  a short phrase: what the harness does
+#   want       what it must observe
+#   status     required, or "deferred: REASON" for a row kept but not yet run
+#   source     the contract or design line the row comes from
+check	class	procedure	want	status	source
+settings_equal_class_d1	D1	open a store declared D1; read PRAGMA synchronous back	NORMAL (1); the store serves	required	contract.md:91 durability 3; design.md:500; contract.md:175 class rows
+settings_equal_class_d2	D2	open a store declared D2; read PRAGMA synchronous back (and fullfsync on darwin)	FULL (2); the store serves	required	contract.md:91; design.md:414, :501
+settings_mismatch_refuses	D2	declare D2 and open with synchronous=NORMAL	open refuses to serve; no request is answered	required	contract.md:91 durability 3; contract.md:192 (Plant)
+declared_class_reported	any	open a store; read its identity and its health	both report the declared class, never a higher one	required	contract.md:89 durability 1, :91 durability 3
+d1_survives_kill9	D1	write and get an acknowledgement; kill -9 the process; reopen	the acknowledged write is read back	required	contract.md:85 D1; contract.md:175 class rows
+d2_ack_after_sync	D2	write with the sync injected to fail	no acknowledgement is sent before the sync; the outcome is not committed	required	contract.md:90 durability 2
+d3_survives_volume_loss	D3	write and get an acknowledgement; delete the volume; restore	the acknowledged write is read back	deferred: no D3 adapter in the SQLite rung	contract.md:86 D3; contract.md:175 class rows
+open_missing_refuses	any	open a path that does not exist	open refuses ("unable to open database file" for SQLite mode=rw); no file appears at the path	required	contract.md:97 open 1; design.md:513
+open_does_not_migrate	any	open a store whose schema version is below the adapter's	open refuses or serves the old schema; no table or column is added; migrate is a separate call	required	contract.md:97 open 1
+create_failed_leaves_none	any	create with a fault before the rename	no store exists under the final name	required	contract.md:98 open 2; design.md:513
+second_writer_refused	any	open the same store while a first writer holds it	the second open is refused; the first keeps serving	required	contract.md:99 open 3
+recovery_reports_position	any	kill -9 after N acknowledged writes; reopen; read the recovery report	the report gives _store.seq, the WAL's length at open and the reopen count	required	contract.md:100 open 4; design.md:513
+recovery_torn_tail_discarded	any	kill -9 during a commit; reopen	a torn unacknowledged tail is discarded; the report says so; no acknowledged write is lost	required	contract.md:100 open 4
+recovery_missing_history_stops	D2	reopen a shipped store whose local seq is below the shipped one	the report says acknowledged history is missing; admissions stop until restore	deferred: no shipped store in the SQLite rung	contract.md:100 open 4; design.md:513
+seq_no_gap_10000	any	run 10,000 write transactions; read every feed row's seq	seq runs from the start position by one with no gap, and equals _store.seq at the end	required	contract.md:105 feed 1; contract.md:177 feed rows
+feed_row_in_transaction	any	write inside a transaction that rolls back	no feed row exists for it; seq did not move	required	contract.md:106 feed 2
+cursor_below_retention_gap	any	delete rows below seq S; read from a cursor (store_id, lineage, seq) with seq < S	the answer is a gap; nothing is skipped silently	required	contract.md:108 feed 4; contract.md:177 feed rows
+cursor_wrong_lineage	any	read from a cursor whose lineage differs from the store's	gap, cause lineage; the reader restarts from the start of this history	required	contract.md:108 feed 4
+handoff_a_to_b_to_a	any	close a store in runtime A; open in runtime B; write; close; reopen in A	each open succeeds, each write is read back, seq has no gap	deferred: one runtime	contract.md:178 handoff rows; design.md:615 S8
+sharp_landing_cases	any	force each landing of io_commit_readback and full_open (commit landed, commit not landed)	each case reads back exactly rev=1 or absent as forced, not either	deferred: loose until a harness forces each landing	outcomes.tsv header (LOOSE cases); contract.md:65 unknown
+receipt_retry_answers_original_outcome	any	write with a receipt (scope, token); retry after a lost reply	the retry answers the original outcome	deferred: the receipt table arrives by migrate, not in this rung	design.md:438 state-schema receipt table; contract.md:77 idempotency 4
+event_batch_written_twice	any	write a batch of events keyed by their own identities twice	the second write changes nothing	deferred: owner ecd-core, development trace store rung S1	contract.md:76 idempotency 3

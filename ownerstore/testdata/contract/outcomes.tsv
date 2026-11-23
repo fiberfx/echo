@@ -1,0 +1,54 @@
+# Conformance vectors of the outcomes of a write for an adapter of the stores of ecd, from specs/ecd_stores/ecd_stores.contract.md
+# (#outcomes, #idempotency) and the SQLite owner's mapping in ecd_stores.design.md#state-schema (Outcomes). Every adapter in every
+# runtime passes every case (contract #conformance, Outcome vectors). Identity and key-order vectors are not here: they are those of
+# ecd-id, vectors/ at go/v0.6.1 (commit 1fcc0f1c13498fe9338e46220525db371a1ca396, github.com/fiberfx/ecd-id).
+# LOOSE cases: io_commit_readback and full_open accept "rev=1 or absent" until a harness forces each landing (check sharp_landing_cases in rows.tsv).
+# A case is a sequence on one fresh store; its rows run in step order. Columns are separated by one tab; "-" stands for an absent value.
+#   case          a unique case name
+#   step          the step's number in the case, from 1
+#   request       create (insert, absent), update (replace at a revision), get (read); get on a poisoned handle reopens first
+#   key           a symbolic name; the harness mints one Ecd ID per name before the case's first step and reuses it for every retry (idempotency 1)
+#   precondition  absent (create) or rev=N (update); "-" for get
+#   size          the value's length in bytes; the limit is 65536 (design state-schema: CHECK length(value) <= 65536); "-" for get
+#   fault         injected before the step: - | io-at-commit (the COMMIT returns an I/O error) | full-rolled-back (SQLITE_FULL, the transaction rolled back,
+#                 connection in autocommit) | space-freed (PRAGMA max_page_count raised, so the volume has room again) | full-open (SQLITE_FULL, the transaction left open) | busy (the file's write lock is held elsewhere past the call's bound)
+#   want_outcome  committed | conflict | refused | unknown (contract #outcomes; never "not sent" in process); "a or b" accepts either; refused:first-cause means
+#                 the refusal carries the cause of the fault that poisoned the handle; for a get: found | absent
+#   want_readback the key's stored state after the step, as a get on the same handle reads it: absent, rev=N, or "rev=N or absent" when the fault leaves it open;
+#                 "-" when the step reads nothing back;
+#   source        the contract or design line the row comes from
+case	step	request	key	precondition	size	fault	want_outcome	want_readback	source
+create_twice	1	create	k1	absent	100	-	committed	rev=1	contract.md:62 outcomes; design.md:453
+create_twice	2	create	k1	absent	100	-	conflict	rev=1	contract.md:75 idempotency 2; design.md:454
+create_twice	3	get	k1	-	-	-	found	rev=1	contract.md:75 idempotency 2 (conflict carries the stored value)
+stale_update	1	create	k1	absent	10	-	committed	rev=1	design.md:453
+stale_update	2	update	k1	rev=1	20	-	committed	rev=2	design.md:453
+stale_update	3	update	k1	rev=1	30	-	conflict	rev=2	contract.md:63 conflict; design.md:454
+stale_update	4	get	k1	-	-	-	found	rev=2	contract.md:63 (nothing written by the conflict)
+update_absent	1	update	k1	rev=1	10	-	conflict	absent	contract.md:63 conflict; design.md:454 (UPDATE ... WHERE id = ? AND rev = ? changed 0 rows)
+oversized	1	create	k1	absent	65537	-	refused	absent	contract.md:64 refused; design.md:455 (a value over 64 KiB)
+oversized	2	get	k1	-	-	-	absent	absent	contract.md:64 (nothing written)
+at_limit	1	create	k1	absent	65536	-	committed	rev=1	design.md:425 CHECK length(value) <= 65536
+oversized_update	1	create	k1	absent	10	-	committed	rev=1	design.md:453
+oversized_update	2	update	k1	rev=1	65537	-	refused	rev=1	design.md:455
+io_commit_readback	1	create	k1	absent	100	io-at-commit	unknown	rev=1 or absent	contract.md:65 unknown; design.md:456
+io_commit_readback	2	get	k1	-	-	-	found or absent	rev=1 or absent	contract.md:69 (a read reopens first, recovery runs, the read sees durable state); design.md:456
+io_commit_retry	1	create	k1	absent	100	io-at-commit	unknown	rev=1 or absent	contract.md:65; design.md:456
+io_commit_retry	2	get	k1	-	-	-	found or absent	rev=1 or absent	contract.md:69
+io_commit_retry	3	create	k1	absent	100	-	committed or conflict	rev=1	contract.md:74-75 idempotency 1-2 (the same id, read back before the retry: committed when step 2 found absent, conflict with the stored value when found)
+poisoned_handle	1	create	k1	absent	100	io-at-commit	unknown	rev=1 or absent	contract.md:69 poisons its handle; design.md:456
+poisoned_handle	2	create	k2	absent	100	-	refused:first-cause	-	contract.md:69 (writes answer refused with the first cause); design.md:455 (the store is poisoned)
+poisoned_handle	3	update	k1	rev=1	100	-	refused:first-cause	-	contract.md:69
+poisoned_handle	4	get	k2	-	-	-	absent	absent	contract.md:69 (a read on the handle first reopens the store and runs recovery); k2 was refused, so nothing was written
+poisoned_handle	5	create	k2	absent	100	-	committed	rev=1	contract.md:69 (the reopen cleared the poison; writes serve again); design.md:456
+full_rolled_back	1	create	k1	absent	100	full-rolled-back	refused	absent	design.md:455 (SQLITE_FULL with the connection back in autocommit)
+full_rolled_back	2	get	k1	-	-	-	absent	absent	design.md:455 (nothing written)
+full_rolled_back	3	create	k1	absent	100	space-freed	committed	rev=1	contract.md:69 outcomes (a write answered refused or conflict leaves the handle usable); PRAGMA max_page_count raised before the step
+full_rolled_back	4	get	k1	-	-	-	found	rev=1	contract.md:69 (read-back of the committed create)
+full_open	1	create	k1	absent	100	full-open	unknown	rev=1 or absent	design.md:456 (a full volume left the transaction open)
+full_open	2	get	k1	-	-	-	found or absent	rev=1 or absent	design.md:456 (poisoned, reopened, read back by the client-minted id)
+busy	1	create	k1	absent	100	busy	refused	absent	design.md:455 (a resource bound; nothing written; the wait is the caller's); derived, see gap in the return report
+busy	2	create	k1	absent	100	-	committed	rev=1	contract.md:64 (the caller waits for the bound, then the same request commits)
+retry_after_unknown_same_id	1	create	k1	absent	100	io-at-commit	unknown	rev=1 or absent	contract.md:65; design.md:456 (the client mints the id once, before the first attempt)
+retry_after_unknown_same_id	2	create	k1	absent	100	-	committed or conflict	rev=1	contract.md:74-75 idempotency 1-2; a retry of a landed create conflicts, of an absent one commits; either leaves exactly one row at rev=1
+retry_after_unknown_same_id	3	create	k1	absent	100	-	conflict	rev=1	contract.md:75 (a third attempt of the same id never writes twice)

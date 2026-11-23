@@ -1,0 +1,15 @@
+The ECD store contract's conformance vectors (version 1, status proposed), copied unchanged:
+
+  outcomes.tsv   the outcomes of a write: 13 cases, 34 steps, 10 columns     (contract: outcomes, idempotency)
+  rows.tsv       class, open, feed and recovery rows: 22 checks, 6 columns,
+                 16 required and 6 deferred                                 (contract: conformance)
+
+TestOutcomeVectors runs every step of outcomes.tsv through the adapter and fails unless all 34 were checked.
+TestRowsMapping maps each check of rows.tsv whose status is "required" to a named test of this package and fails
+when a required check has none or a mapped check is not in the file. Deferred checks stay unmapped.
+
+A step's fault is injected like this: io-at-commit by a test-only hook on the commit path (the COMMIT happens and
+then fails, or the transaction rolls back and then fails: both landings are exercised); full-rolled-back by
+PRAGMA max_page_count with the table filled to its page limit; space-freed by raising max_page_count again;
+full-open by the commit hook, which leaves the transaction open with SQLITE_FULL; busy by a second connection that
+holds a write lock past busy_timeout.
