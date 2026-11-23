@@ -1,0 +1,7 @@
+Conformance vectors of the COR ingress rule of this module, reqid.ReadCorrelation and reqid.CorrelationOf:
+
+  correlation_of.tsv  47 rows: the Baggage header values, the X-Correlation-ID header, the COR the rule returns, the
+                      member as the rule reads it, and the reason each carrier gives or refuses     (TestCorrelationVectors)
+
+The file was authored with ECD's daemon ingress (its Step B0). It is canonical in this module from v6.10.0. A copy in
+another repository is byte-identical to the file of the mx-echo version that repository pins.

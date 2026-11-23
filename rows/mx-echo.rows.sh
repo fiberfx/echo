@@ -22,7 +22,8 @@
 #                mxe): ecd and brd are refused, mxe and detached are accepted, and the compiled set equals the one derived
 #                from the vendored registry (reqid/testdata/eid/systems.tsv, kinds.tsv), and a minter on an emq lease mints no COR
 #   read-correlation  ReadCorrelation gives the COR, its carrier and a reason for each carrier (ok, absent, escape, each strict-parse
-#                refusal, cor-kind, cor-system) without allocating, and CorrelationOf is its Correlation
+#                refusal, cor-kind, cor-system) without allocating, and CorrelationOf is its Correlation; every row of the
+#                vector table reqid/testdata/correlation/correlation_of.tsv holds
 #   mutant-pad   a copy whose pad check is wrong (last&3 becomes last&2) turns TestEIDVectorsInvalid red
 #   mutant-count a copy whose minter does not count (count = m.count + 1 becomes count = 0) turns TestEIDVectorsMint red
 #   mutant-cor   a copy whose COR system check accepts every system (if system.Class() == Detached becomes if true) turns
@@ -118,11 +119,11 @@ n=$(grep -c '^--- PASS' /tmp/cor.log)
 row "cor-systems: a COR only from a detached-class or live-cor registered system" $r "$s"
 
 s=$(date +%s)
-go test -count=1 -v -run '^(TestReadCorrelation|TestReadCorrelationAbsent|TestReadCorrelationEscapeAndLength|TestReadCorrelationCarriers|TestReadCorrelationSourceNames|TestReadCorrelationAllocs)$' ./reqid/ >/tmp/read.log 2>&1
+go test -count=1 -v -run '^(TestReadCorrelation|TestReadCorrelationAbsent|TestReadCorrelationEscapeAndLength|TestReadCorrelationCarriers|TestReadCorrelationSourceNames|TestReadCorrelationAllocs|TestCorrelationVectors)$' ./reqid/ >/tmp/read.log 2>&1
 r=$?
 grep -E '^(--- |ok|FAIL)|_test.go:[0-9]+:' /tmp/read.log | cut -c1-300 | head -30
 n=$(grep -c '^--- PASS' /tmp/read.log)
-[ "$n" = 6 ] || { echo "read-correlation: $n of 6 tests passed"; r=1; }
+[ "$n" = 7 ] || { echo "read-correlation: $n of 7 tests passed"; r=1; }
 row "read-correlation: a COR with its carrier and a reason per carrier, no allocation" $r "$s"
 
 s=$(date +%s)

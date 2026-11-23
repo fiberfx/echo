@@ -1,0 +1,72 @@
+# Conformance vectors of the COR ingress rule of github.com/fiberfx/mx-echo/v6, package reqid: ReadCorrelation, and
+# CorrelationOf, which returns its COR. This file is canonical in that module at reqid/testdata/correlation/; a copy
+# elsewhere is byte-identical to the one of the mx-echo version it pins.
+# The rule: the first Baggage member whose key is bcs.correlation.id gives the COR when its value, without properties,
+# trimmed of spaces and tabs and percent-decoded, is a valid COR; else the X-Correlation-ID header gives it when it is
+# one; else the request has none. An invalid value counts as absent, with its reason; it is never truncated or repaired.
+# Every implementation of the rule passes every row.
+#
+# Columns are separated by one tab. No field is empty; "-" stands for an absent value.
+#   name            a unique row name
+#   baggage         the Baggage header values in order, separated by "|"; "-" when the request has none
+#   header          the X-Correlation-ID header value; "-" when absent
+#   want            the COR the rule returns; "-" for none
+#   member          the value of the first bcs.correlation.id member as the rule reads it (without properties, trimmed,
+#                   percent-decoded); "-" when no member has the key, its value is empty or an escape is malformed
+#   baggage_reason  the member: ok, absent, escape (a malformed percent escape) or a refusal
+#   header_reason   the header: ok, absent or a refusal
+# In baggage, header and member "\t" is a tab and "\\" a backslash; in baggage "\|" is a literal "|".
+#
+# Refusals: the strict parse of the Ecd ID (ecd-id spec/id.md): length, separator, alphabet, pad, reserved,
+# system-reserved, kind; cor-kind for a valid eid of another kind; cor-system for a valid eid of kind cor from a system
+# that may not issue one (a registered system that is retired or has no live cor row in the ecd-id registry at
+# go/v0.6.1, which leaves mxe alone; a detached-class system always may). want follows from the reasons: the member
+# when baggage_reason is ok, else the header when header_reason is ok, else "-".
+name	baggage	header	want	member	baggage_reason	header_reason
+nothing	-	-	-	-	absent	absent
+header-alone	-	mxe_cor_23obzcbapvupu2272222	mxe_cor_23obzcbapvupu2272222	-	absent	ok
+baggage-alone	bcs.correlation.id=mxe_cor_23obzcbapvupu2272226	-	mxe_cor_23obzcbapvupu2272226	mxe_cor_23obzcbapvupu2272226	ok	absent
+baggage-detached-system	bcs.correlation.id=3ab_cor_23obzcbapv5prncp2222	-	3ab_cor_23obzcbapv5prncp2222	3ab_cor_23obzcbapv5prncp2222	ok	absent
+baggage-over-header	bcs.correlation.id=mxe_cor_23obzcbapvupu2272226	mxe_cor_23obzcbapvupu2272222	mxe_cor_23obzcbapvupu2272226	mxe_cor_23obzcbapvupu2272226	ok	ok
+baggage-member-among-others	other=1, bcs.correlation.id=mxe_cor_23obzcbapvupu2272226;p=1	-	mxe_cor_23obzcbapvupu2272226	mxe_cor_23obzcbapvupu2272226	ok	absent
+baggage-spaces-and-tabs	 \tbcs.correlation.id \t=\t mxe_cor_23obzcbapvupu2272226 \t;p	-	mxe_cor_23obzcbapvupu2272226	mxe_cor_23obzcbapvupu2272226	ok	absent
+baggage-second-header-value	a=1|b=2,bcs.correlation.id=mxe_cor_23obzcbapvupu2272226	-	mxe_cor_23obzcbapvupu2272226	mxe_cor_23obzcbapvupu2272226	ok	absent
+baggage-empty-members	,, bcs.correlation.id=mxe_cor_23obzcbapvupu2272226 ,	-	mxe_cor_23obzcbapvupu2272226	mxe_cor_23obzcbapvupu2272226	ok	absent
+baggage-member-without-equals-skipped	bcs.correlation.id, bcs.correlation.id=mxe_cor_23obzcbapvupu2272226	-	mxe_cor_23obzcbapvupu2272226	mxe_cor_23obzcbapvupu2272226	ok	absent
+baggage-percent-encoded	bcs.correlation.id=%6dxe_cor_23obzcbapvupu2272226	-	mxe_cor_23obzcbapvupu2272226	mxe_cor_23obzcbapvupu2272226	ok	absent
+baggage-percent-encoded-upper-hex	bcs.correlation.id=%6D%78e_cor_23obzcbapvupu2272226	mxe_cor_23obzcbapvupu2272222	mxe_cor_23obzcbapvupu2272226	mxe_cor_23obzcbapvupu2272226	ok	ok
+old-cor-header	-	COR00000000001	-	-	absent	length
+old-cor-baggage	bcs.correlation.id=COR00000000001	-	-	COR00000000001	length	absent
+old-cor-baggage-valid-header	bcs.correlation.id=COR00000000001	mxe_cor_23obzcbapvupu2272222	mxe_cor_23obzcbapvupu2272222	COR00000000001	length	ok
+old-cor-both	bcs.correlation.id=COR00000000001	COR00000000002	-	COR00000000001	length	length
+opr-header	-	ecd_opr_23obzcbapvupu2272222	-	-	absent	cor-kind
+opr-baggage	bcs.correlation.id=3ab_opr_23obzcbapv5prncp2222	-	-	3ab_opr_23obzcbapv5prncp2222	cor-kind	absent
+opr-baggage-valid-header	bcs.correlation.id=3ab_opr_23obzcbapv5prncp2222	mxe_cor_23obzcbapvupu2272222	mxe_cor_23obzcbapvupu2272222	3ab_opr_23obzcbapv5prncp2222	cor-kind	ok
+uppercase-header	-	MXE_COR_23OBZCBAPVUPU2272222	-	-	absent	alphabet
+uppercase-baggage-valid-header	bcs.correlation.id=MXE_COR_23OBZCBAPVUPU2272226	mxe_cor_23obzcbapvupu2272222	mxe_cor_23obzcbapvupu2272222	MXE_COR_23OBZCBAPVUPU2272226	alphabet	ok
+pad-header	-	mxe_cor_23obzcbapvupu2272223	-	-	absent	pad
+pad-baggage-valid-header	bcs.correlation.id=mxe_cor_23obzcbapvupu227222z	mxe_cor_23obzcbapvupu2272222	mxe_cor_23obzcbapvupu2272222	mxe_cor_23obzcbapvupu227222z	pad	ok
+first-member-decides	bcs.correlation.id=garbage, bcs.correlation.id=mxe_cor_23obzcbapvupu2272226	-	-	garbage	length	absent
+first-member-decides-valid-header	bcs.correlation.id=garbage, bcs.correlation.id=mxe_cor_23obzcbapvupu2272226	mxe_cor_23obzcbapvupu2272222	mxe_cor_23obzcbapvupu2272222	garbage	length	ok
+first-member-across-header-values	bcs.correlation.id=3ab_opr_23obzcbapv5prncp2222|bcs.correlation.id=mxe_cor_23obzcbapvupu2272226	-	-	3ab_opr_23obzcbapv5prncp2222	cor-kind	absent
+first-member-empty-value	bcs.correlation.id=, bcs.correlation.id=mxe_cor_23obzcbapvupu2272226	-	-	-	absent	absent
+member-without-value-valid-header	bcs.correlation.id	mxe_cor_23obzcbapvupu2272222	mxe_cor_23obzcbapvupu2272222	-	absent	ok
+longer-key	bcs.correlation.idx=mxe_cor_23obzcbapvupu2272226	-	-	-	absent	absent
+truncation-header	-	mxe_cor_23obzcbapvupu2272222mxe_cor_23obzcbapvupu2272226	-	-	absent	length
+truncation-baggage-valid-header	bcs.correlation.id=mxe_cor_23obzcbapvupu2272222mxe_cor_23obzcbapvupu2272226	mxe_cor_22222222222222222222	mxe_cor_22222222222222222222	mxe_cor_23obzcbapvupu2272222mxe_cor_23obzcbapvupu2272226	length	ok
+two-in-header	-	mxe_cor_23obzcbapvupu2272226, mxe_cor_23obzcbapvupu2272222	-	-	absent	length
+separator-header	-	mxe-cor_23obzcbapvupu2272222	-	-	absent	separator
+reserved-header	-	mxe_cor_c3obzcbapvupu2272222	-	-	absent	reserved
+system-reserved-header	-	2xe_cor_23obzcbapvupu2272222	-	-	absent	system-reserved
+kind-header	-	mxe_c2r_23obzcbapvupu2272222	-	-	absent	kind
+percent-bad-hex-valid-header	bcs.correlation.id=%6Gxe_cor_23obzcbapvupu2272226	mxe_cor_23obzcbapvupu2272222	mxe_cor_23obzcbapvupu2272222	-	escape	ok
+percent-cut-short-valid-header	bcs.correlation.id=mxe_cor_23obzcbapvupu227222%3	mxe_cor_23obzcbapvupu2272222	mxe_cor_23obzcbapvupu2272222	-	escape	ok
+percent-decodes-to-29-valid-header	bcs.correlation.id=%6dxe_cor_23obzcbapvupu22722262	mxe_cor_23obzcbapvupu2272222	mxe_cor_23obzcbapvupu2272222	mxe_cor_23obzcbapvupu22722262	length	ok
+percent-decodes-outside-alphabet	bcs.correlation.id=mxe_cor_23obzcbapvupu227222%2D	-	-	mxe_cor_23obzcbapvupu227222-	alphabet	absent
+ecd-cor-baggage	bcs.correlation.id=ecd_cor_23obzcbapvupu2272222	-	-	ecd_cor_23obzcbapvupu2272222	cor-system	absent
+ecd-cor-baggage-valid-header	bcs.correlation.id=ecd_cor_23obzcbapvupu2272222	mxe_cor_23obzcbapvupu2272222	mxe_cor_23obzcbapvupu2272222	ecd_cor_23obzcbapvupu2272222	cor-system	ok
+ecd-cor-header	-	ecd_cor_23obzcbapvupu2272222	-	-	absent	cor-system
+unregistered-system-header	-	zzz_cor_bzzzzzzzzzzzzzzzzzzw	-	-	absent	cor-system
+brd-cor-baggage	bcs.correlation.id=brd_cor_23obzcbapvupu2272222	-	-	brd_cor_23obzcbapvupu2272222	cor-system	absent
+brd-cor-baggage-valid-header	bcs.correlation.id=brd_cor_23obzcbapvupu2272222	mxe_cor_23obzcbapvupu2272222	mxe_cor_23obzcbapvupu2272222	brd_cor_23obzcbapvupu2272222	cor-system	ok
+brd-cor-header	-	brd_cor_23obzcbapvupu2272222	-	-	absent	cor-system
