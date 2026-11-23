@@ -249,7 +249,7 @@ func TestMinterCorrelation(t *testing.T) {
 	clock := &testClock{}
 	clock.ms.Store(1795271400123)
 	for _, c := range []struct{ lease, first, second string }{
-		{"emq:895287301:1795271400000:1795357800000", "emq_cor_23obzcbapvupu2272222", "emq_cor_23obzcbapvupu2272226"},
+		{"mxe:895287301:1795271400000:1795357800000", "mxe_cor_23obzcbapvupu2272222", "mxe_cor_23obzcbapvupu2272226"},
 		{"3ab:123456789:1795271400000:1795357800000", "3ab_cor_23obzcbapv5prncp2222", "3ab_cor_23obzcbapv5prncp2226"},
 	} {
 		m := reqid.NewMinter(testLease(t, c.lease), clock, newPid(1))
