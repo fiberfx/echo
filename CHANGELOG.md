@@ -1,5 +1,14 @@
 # Changelog
 
+## MX Echo v6.9.2 — 2026-11-23
+
+- Fixed: earlier versions accepted a COR of any registered system, which the registry does not allow. `reqid.Correlation` is an eid of kind `cor` from a detached-class system, or from a registered system that has a live `cor` row in the ecd-id registry, which today is `mxe` alone. `ParseCorrelation`, `NewCorrelation`, `UnmarshalText`, `CorrelationOf` (Baggage, header, environment and `_meta` alike) and `Minter.Correlation` apply that one rule and refuse a COR of any other registered system, `ecd` and the retired `brd` among them; a minter on such a system returns the zero Correlation.
+- The accepted set is fixed in `reqid`, derived from the registry at ecd-id 1fcc0f1 (go/v0.6.1): a system not retired, with a `cor` row not retired. The two registry files are vendored in `reqid/testdata/eid`, and a test fails unless the set derived from them equals the compiled one.
+
+## MX Echo v6.9.1 — 2026-11-23
+
+- `mxdb`: a status 4 reply is a `ProtocolError`, and a rejected update carries the code byte of the rejection (`Rejected`). An update is retried on a fresh connection only when writing the request fails, for a pooled connection the server has reset; once the whole frame is written, a failure is an unknown outcome (`ErrOutcomeUnknown`) and is not retried. `ScanAll` restarts when the commit it reads is gone (`NoSuchCommit`).
+
 ## MX Echo v6.9.0 — 2026-11-22
 
 - Changed, breaking: `reqid` ids are Ecd IDs (eids) and nothing else; the branded-id contract of v6.7.0 is removed, with no compatibility path. An eid is 16 bytes of system, kind, time, writer and count, written as 28 lowercase characters such as `mxe_cor_23obzcbapvupu2272222`; its layout and strict parse are those of `spec/id.md` of the ecd-id repository. `EncodeBranded`, `DecodeBranded`, `BrandedUnixMilli`, `NodeFrom`, `Minter.Next` and `NewMinter(node, clock)` are gone.

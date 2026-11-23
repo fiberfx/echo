@@ -1,5 +1,9 @@
 # MX Echo roadmap
 
+## v6.9.2
+
+A COR is accepted only from a detached-class system or from a registered system with a live `cor` row in the ecd-id registry (`mxe` today). The `mxdb` client reports reject codes and retries an update only when its request was not fully written.
+
 ## v6.9.0
 
 Request ids are Ecd IDs (eids) and nothing else: the id scheme of v6.7.0 is removed without a compatibility path, and `reqid` mints on a lease or detached. The package `mxdb` adds a Go client of the mxdb sidecar.
