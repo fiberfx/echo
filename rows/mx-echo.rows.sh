@@ -16,7 +16,8 @@
 #                non-test files read no clock, environment, process id or random source
 #   conformance  the Ecd ID vectors (reqid/testdata/eid) are read both ways, every invalid row is refused with its reason
 #   legacy-free  no file of the tree names the removed id scheme (its package, its text form, its radix or its encoder)
-#                outside CHANGELOG.md; the pattern is built from pieces so that this file does not name it
+#                outside CHANGELOG.md and the vendored registry copy systems.tsv (which names retired brd by its old
+#                name); the pattern is built from pieces so that this file does not name it
 #   cor-systems  a COR is accepted only from a detached-class system or from a registered system with a live cor row (today
 #                mxe): ecd and brd are refused, mxe and detached are accepted, and the compiled set equals the one derived
 #                from the vendored registry (reqid/testdata/eid/systems.tsv, kinds.tsv)
@@ -112,7 +113,7 @@ row "cor-systems: a COR only from a detached-class or live-cor registered system
 
 s=$(date +%s)
 old='brd''14|brand''ed|Encode''Bran''ded|Base''62'
-hits=$(grep -r -n -i -E "$old" --exclude=CHANGELOG.md --exclude-dir=inputs --exclude-dir=rows --exclude-dir=.git . | cut -c1-200 | head)
+hits=$(grep -r -n -i -E "$old" --exclude=CHANGELOG.md --exclude=systems.tsv --exclude-dir=inputs --exclude-dir=rows --exclude-dir=.git . | cut -c1-200 | head)
 [ -n "$hits" ] && echo "$hits"
 [ -z "$hits" ]
 row "legacy-free: the removed id scheme is named nowhere outside CHANGELOG.md" $? "$s"
