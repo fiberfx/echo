@@ -1,0 +1,11 @@
+# The system registry, version 1. One row per system code; a code is never reused or renamed.
+# code: three alphabet characters, the first a letter. state: live, closed (read only, nothing mints) or retired.
+# home: the one supervisor that may start the allocator ("-" while none is assigned). served_by: "-" or a code.
+code	name	owner	home	state	served_by
+brd	brd14 embeddings	-	-	retired	-
+ecd	ecd-core daemon	ecd-core	-	live	-
+emq	EchoMQ	-	-	live	-
+fvx	fv supervisor	-	-	live	-
+kan	KAN	-	m5	live	-
+mxe	mx-echo applications	-	-	live	-
+mxr	mx and mx-exec runs	-	-	live	-

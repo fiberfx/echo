@@ -1,0 +1,67 @@
+# The kind registry, version 1. One row per (system, kind); the system owner adds rows for its own system.
+# kind: three letters a-z. The kind sys belongs to the format (the system itself, in every system) and has no row.
+# role: entity, activation, command, run, stream, store, database, transaction, correlation or request.
+# state: live, closed or retired; a kind is never deleted or reassigned. served_by: "-" or the code that serves it now.
+# The kinds of brd are kept as history; nothing mints under brd.
+system	kind	role	state	served_by	meaning
+brd	agt	entity	live	-	registered principal
+brd	app	entity	live	-	dual-app identity
+brd	arc	entity	live	-	archetype bundle
+brd	ast	entity	live	-	intent subject (asset)
+brd	bat	entity	live	-	batch
+brd	cfg	entity	live	-	config entity
+brd	cmt	entity	live	-	commit or version
+brd	cor	correlation	live	-	correlation id
+brd	crs	entity	live	-	correspondence
+brd	ems	entity	retired	-	emoji set
+brd	evt	stream	live	-	stream event record
+brd	gam	entity	retired	-	game
+brd	ges	entity	retired	-	guess
+brd	grp	entity	live	-	lane group
+brd	job	command	live	-	queue job
+brd	kan	entity	live	-	spec record
+brd	log	entity	closed	-	log line (reserved)
+brd	msg	entity	live	-	bus message or live message tag (two meanings)
+brd	not	entity	retired	-	notification job
+brd	obx	entity	closed	-	outbox (parked)
+brd	ord	entity	retired	-	key-shop order
+brd	otx	transaction	retired	-	key-shop order transaction
+brd	pkg	entity	retired	-	key-shop package
+brd	plr	entity	retired	-	player
+brd	prt	entity	live	-	flow parent
+brd	req	request	live	-	api request or response
+brd	rom	entity	retired	-	room
+brd	rvl	entity	retired	-	wallet reversal
+brd	seg	entity	live	-	segment
+brd	ses	activation	live	-	session
+brd	sub	entity	live	-	bus subscription
+brd	trc	entity	live	-	trace span
+brd	txn	transaction	retired	-	wallet transaction
+brd	usr	entity	live	-	operator or user
+brd	vis	entity	live	-	site visitor
+brd	vol	entity	live	-	volume
+brd	wfl	entity	live	-	workflow
+ecd	cmd	command	live	-	command
+ecd	msg	entity	live	-	pubsub message
+ecd	opr	request	live	-	operation
+ecd	res	entity	live	-	resource
+ecd	run	run	live	-	run
+emq	dbs	database	live	-	database
+emq	evt	stream	live	-	stream event record
+emq	job	command	live	-	queue job
+emq	msg	entity	live	-	bus message
+emq	sto	store	live	-	store
+emq	sub	entity	live	-	bus subscription
+emq	txn	transaction	live	-	transaction
+fvx	act	activation	live	-	activation
+fvx	req	request	live	-	request
+fvx	run	run	live	-	run
+kan	agt	entity	live	-	registered principal
+kan	crs	entity	live	-	correspondence
+kan	doc	entity	live	-	document
+kan	evt	stream	live	-	event
+kan	ses	activation	live	-	session
+mxe	cor	correlation	live	-	correlation id
+mxe	req	request	live	-	request
+mxr	req	request	live	-	request
+mxr	run	run	live	-	run

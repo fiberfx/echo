@@ -34,7 +34,7 @@ func TestCorrelationNames(t *testing.T) {
 }
 
 func TestParseCorrelation(t *testing.T) {
-	for _, s := range []string{"mxe_cor_23obzcbapvupu2272222", "mxe_cor_22222222222222222222", "zzz_cor_bzzzzzzzzzzzzzzzzzzw", "mxe_cor_23obzcbapvupu2272226", "3ab_cor_23obzcbapv5prncp2222"} {
+	for _, s := range []string{"mxe_cor_23obzcbapvupu2272222", "mxe_cor_22222222222222222222", "3zz_cor_bzzzzzzzzzzzzzzzzzzw", "mxe_cor_23obzcbapvupu2272226", "3ab_cor_23obzcbapv5prncp2222"} {
 		c, ok := reqid.ParseCorrelation(s)
 		if !ok || c.IsZero() || c.String() != s {
 			t.Errorf("ParseCorrelation(%q) = (%q, %t), want the same text and true", s, c, ok)

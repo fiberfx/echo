@@ -13,24 +13,55 @@ const (
 // corKind is the kind of a COR id.
 var corKind, _ = ParseCode("cor")
 
-// Correlation is a COR id, the flow a request belongs to: an eid of kind cor, from any system, a detached one
-// included. It is comparable, and never a request's name. The zero Correlation means "none"; the zero EID is not a
+// corSystems are the registered systems whose COR is accepted: those the ecd-id registry (registry/systems.tsv and
+// registry/kinds.tsv at ecd-id 1fcc0f1, go/v0.6.1) holds in a state other than retired, with a cor row in a state other
+// than retired. A test derives the set from the vendored copies and fails unless it equals this one.
+var corSystems = func() []Code {
+	mxe, _ := ParseCode("mxe")
+	return []Code{mxe}
+}()
+
+// corSystemOK reports whether id's system may issue a COR: a detached-class system always, a registered one only when
+// it is in corSystems.
+func corSystemOK(id EID) bool {
+	system := id.System()
+	if system.Class() == Detached {
+		return true
+	}
+	for _, c := range corSystems {
+		if c == system {
+			return true
+		}
+	}
+	return false
+}
+
+// checkCorrelation is the one rule of a COR that every carrier applies: id is an eid of kind cor, and its system is
+// detached-class or a registered system with a live cor row.
+func checkCorrelation(id EID) bool {
+	return id.Kind() == corKind && corSystemOK(id)
+}
+
+// Correlation is a COR id, the flow a request belongs to: an eid of kind cor from a detached-class system or from a
+// registered system that has a live cor row in the ecd-id registry (today mxe alone; a COR of any other registered
+// system, brd and ecd among them, is refused). It is comparable, and never a request's name. The zero Correlation means "none"; the zero EID is not a
 // valid id, so no COR is equal to it.
 type Correlation struct{ id EID }
 
 // ParseCorrelation reads a COR id: an eid that ParseEID accepts, of kind cor. It reports false for an empty value,
-// which is absent, for a malformed one and for one of another kind. It allocates nothing.
+// which is absent, for a malformed one, for one of another kind and for one of a system that
+// may not issue a COR. It allocates nothing.
 func ParseCorrelation(s string) (Correlation, bool) {
 	id, err := ParseEID(s)
-	if err != nil || id.Kind() != corKind {
+	if err != nil || !checkCorrelation(id) {
 		return Correlation{}, false
 	}
 	return Correlation{id}, true
 }
 
-// NewCorrelation returns the COR of id. It reports false unless id is a valid eid of kind cor.
+// NewCorrelation returns the COR of id. It reports false unless id is a valid eid of kind cor from an accepted system.
 func NewCorrelation(id EID) (Correlation, bool) {
-	if checked, err := checkEID(id); err != nil || checked.Kind() != corKind {
+	if checked, err := checkEID(id); err != nil || !checkCorrelation(checked) {
 		return Correlation{}, false
 	}
 	return Correlation{id}, true

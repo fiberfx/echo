@@ -10,3 +10,12 @@ the environment"):
 
 The rows that name the allocator's writer numbers (lease.tsv, first column "writer") and the stream mapping
 (stream.tsv) are not exercised: reqid has no allocator and no stream mapping.
+
+The registry copies, unchanged from the registry/ folder of the ecd-id repository at commit 1fcc0f1 (tag go/v0.6.1):
+
+  systems.tsv         the system registry; read by TestCorSystems
+  kinds.tsv           the kind registry; read by TestCorSystems
+
+A COR is accepted from a detached-class system, or from a registered system whose row is not retired and whose (system,
+cor) row is not retired. TestCorSystems derives that set from these two files and fails unless it equals the set
+compiled into reqid.

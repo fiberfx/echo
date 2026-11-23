@@ -20,7 +20,7 @@ var _ encoding.TextUnmarshaler = (*reqid.Correlation)(nil)
 // the Correlation as it was.
 func checkUnmarshalText(unmarshal func(*reqid.Correlation, []byte) error) error {
 	old, _ := reqid.ParseCorrelation("mxe_cor_23obzcbapvupu2272226")
-	for _, s := range []string{"mxe_cor_23obzcbapvupu2272222", "mxe_cor_22222222222222222222", "zzz_cor_bzzzzzzzzzzzzzzzzzzw", ""} {
+	for _, s := range []string{"mxe_cor_23obzcbapvupu2272222", "mxe_cor_22222222222222222222", "3zz_cor_bzzzzzzzzzzzzzzzzzzw", ""} {
 		c := old
 		want, _ := reqid.ParseCorrelation(s)
 		if err := unmarshal(&c, []byte(s)); err != nil || c != want {
