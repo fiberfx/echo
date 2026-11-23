@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fiberfx/mx-echo/v6"
+	"github.com/fiberfx/mx-echo/v7"
 )
 
 // Skipper defines a function to skip middleware. Returning true skips processing the middleware.

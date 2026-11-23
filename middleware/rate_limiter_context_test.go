@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6"
+	"github.com/fiberfx/mx-echo/v7"
 	"github.com/stretchr/testify/assert"
 )
 

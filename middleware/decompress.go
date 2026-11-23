@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/fiberfx/mx-echo/v6"
+	"github.com/fiberfx/mx-echo/v7"
 )
 
 // DecompressConfig defines the config for Decompress middleware.

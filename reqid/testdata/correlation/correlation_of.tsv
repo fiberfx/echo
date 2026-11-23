@@ -1,4 +1,4 @@
-# Conformance vectors of the COR ingress rule of github.com/fiberfx/mx-echo/v6, package reqid: ReadCorrelation, and
+# Conformance vectors of the COR ingress rule of github.com/fiberfx/mx-echo/v7, package reqid: ReadCorrelation, and
 # CorrelationOf, which returns its COR. This file is canonical in that module at reqid/testdata/correlation/; a copy
 # elsewhere is byte-identical to the one of the mx-echo version it pins.
 # The rule: the first Baggage member whose key is bcs.correlation.id gives the COR when its value, without properties,

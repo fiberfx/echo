@@ -16,8 +16,8 @@ import (
 var allowed = map[string]bool{
 	"strconv":                               true,
 	"unicode/utf8":                          true,
-	"github.com/fiberfx/mx-echo/v6/reqid":   true,
-	"github.com/fiberfx/mx-echo/v6/outcome": true,
+	"github.com/fiberfx/mx-echo/v7/reqid":   true,
+	"github.com/fiberfx/mx-echo/v7/outcome": true,
 }
 
 func checkImports(filename string, src any) error {

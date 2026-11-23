@@ -15,7 +15,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 	_ "modernc.org/sqlite" // registers the "sqlite" driver
 )
 

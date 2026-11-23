@@ -21,7 +21,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // stringToBytes returns a []byte view over s without copying, avoiding the allocation+copy of []byte(s)

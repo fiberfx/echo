@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fiberfx/mx-echo/v6/server"
+	"github.com/fiberfx/mx-echo/v7/server"
 )
 
 // wait bounds every receive of a test, and is the grace of a stop that must drain: a passing test never

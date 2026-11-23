@@ -5,7 +5,7 @@ package fibervisor
 import (
 	"net/http"
 
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // Transport returns a RoundTripper that sends each request through next (http.DefaultTransport when nil) with

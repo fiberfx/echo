@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6/echotest"
+	"github.com/fiberfx/mx-echo/v7/echotest"
 	"github.com/stretchr/testify/assert"
 )
 

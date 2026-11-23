@@ -1,17 +1,17 @@
-# MX Echo v6
+# MX Echo v7
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/fiberfx/mx-echo/v6.svg)](https://pkg.go.dev/github.com/fiberfx/mx-echo/v6)
+[![Go Reference](https://pkg.go.dev/badge/github.com/fiberfx/mx-echo/v7.svg)](https://pkg.go.dev/github.com/fiberfx/mx-echo/v7)
 [![Go 1.27.4](https://img.shields.io/badge/go-1.27.4-00ADD8)](go.mod)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-MX Echo is a Go HTTP framework derived from LabStack Echo v5.4.6, with the v5.4.7 fixes adapted to v6. Its router, middleware and request-test helpers ship together as one module, `github.com/fiberfx/mx-echo/v6`. Beside the framework, the module holds standalone packages for typed binding, server lifecycle, route patterns, request outcomes, request names and observation. They use no Echo type, so any `http.Handler` can use them. A service that the fv supervisor holds can opt into the `fibervisor` package to state its attempt, name its requests in fv's terms and report how it stopped. Each feature added since v6.3.0 is opt-in: with none of them used, the request path and every default stay as they were.
+MX Echo is a Go HTTP framework derived from LabStack Echo v5.4.6, with the v5.4.7 fixes adapted to v7. Its router, middleware and request-test helpers ship together as one module, `github.com/fiberfx/mx-echo/v7`. Beside the framework, the module holds standalone packages for typed binding, server lifecycle, route patterns, request outcomes, request names and observation. They use no Echo type, so any `http.Handler` can use them. A service that the fv supervisor holds can opt into the `fibervisor` package to state its attempt, name its requests in fv's terms and report how it stopped. Each feature added since v6.3.0 is opt-in: with none of them used, the request path and every default stay as they were.
 
-The minimum Go version is **1.27.4**. The latest release is **v6.11.0**.
+The minimum Go version is **1.27.4**. The latest release is **v7.0.0**.
 
 ## Install
 
 ```sh
-go get github.com/fiberfx/mx-echo/v6@v6.11.0
+go get github.com/fiberfx/mx-echo/v7@v7.0.0
 ```
 
 After adding imports such as `middleware`, run `go mod tidy` in the application to record the dependencies its packages use.
@@ -25,8 +25,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/fiberfx/mx-echo/v6"
-	"github.com/fiberfx/mx-echo/v6/middleware"
+	"github.com/fiberfx/mx-echo/v7"
+	"github.com/fiberfx/mx-echo/v7/middleware"
 )
 
 func main() {
@@ -55,8 +55,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/fiberfx/mx-echo/v6/bind"
-	"github.com/fiberfx/mx-echo/v6/server"
+	"github.com/fiberfx/mx-echo/v7/bind"
+	"github.com/fiberfx/mx-echo/v7/server"
 )
 
 func Serve(ctx context.Context, address string) error {
@@ -77,22 +77,22 @@ Fibervisor's responses service composes an Echo router with the same lifecycle t
 
 ## Packages
 
-Eight standalone packages were added from v6.2.0 to v6.5.0, and `ownerstore` in v6.11.0. They share the framework's module and version, and [examples/reference](examples/reference/) composes them with no Echo type.
+Eight standalone packages were added from v6.2.0 to v6.5.0, and `ownerstore` in v7.0.0. They share the framework's module and version, and [examples/reference](examples/reference/) composes them with no Echo type.
 
 | Import | Responsibility |
 | --- | --- |
-| `github.com/fiberfx/mx-echo/v6` | Route registration, request context, binding, responses and server lifecycle |
-| `github.com/fiberfx/mx-echo/v6/bind` | Convert strings and slices with pure functions, including defaults and typed time options |
-| `github.com/fiberfx/mx-echo/v6/server` | Serve any `http.Handler` with a caller-owned cancellation context, listener and shutdown policy, report how the stop ended and own work that outlives a request |
-| `github.com/fiberfx/mx-echo/v6/route/pattern` | Read a route pattern into its static, parameter and wildcard parts with pure functions |
-| `github.com/fiberfx/mx-echo/v6/outcome` | Classify how a request ended and decide the status of an error response with pure functions |
-| `github.com/fiberfx/mx-echo/v6/reqid` | Name a request with a small value ordered by time, parse an incoming `traceparent`, and mint and read Ecd IDs (eids), the COR correlation value among them |
-| `github.com/fiberfx/mx-echo/v6/ownerstore` | Keep a service's state in one SQLite file under Ecd ID keys, with the four outcomes of a write (committed, conflict, refused, unknown), a changefeed, durability classes D1 and D2 and one owner at a time |
-| `github.com/fiberfx/mx-echo/v6/observe` | Describe one finished request as a value, write it as JSON and hand it to a sink |
-| `github.com/fiberfx/mx-echo/v6/observe/stdhttp` | Name and observe the requests of any `http.Handler`, with the standard mux's pattern |
-| `github.com/fiberfx/mx-echo/v6/fibervisor` | Read the attempt the fv supervisor gave the process, state the build, and write observations as JSON lines |
-| `github.com/fiberfx/mx-echo/v6/middleware` | HTTP middleware, including request logging, recovery and compression |
-| `github.com/fiberfx/mx-echo/v6/echotest` | Request contexts, response recorders and fixtures for handler tests |
+| `github.com/fiberfx/mx-echo/v7` | Route registration, request context, binding, responses and server lifecycle |
+| `github.com/fiberfx/mx-echo/v7/bind` | Convert strings and slices with pure functions, including defaults and typed time options |
+| `github.com/fiberfx/mx-echo/v7/server` | Serve any `http.Handler` with a caller-owned cancellation context, listener and shutdown policy, report how the stop ended and own work that outlives a request |
+| `github.com/fiberfx/mx-echo/v7/route/pattern` | Read a route pattern into its static, parameter and wildcard parts with pure functions |
+| `github.com/fiberfx/mx-echo/v7/outcome` | Classify how a request ended and decide the status of an error response with pure functions |
+| `github.com/fiberfx/mx-echo/v7/reqid` | Name a request with a small value ordered by time, parse an incoming `traceparent`, and mint and read Ecd IDs (eids), the COR correlation value among them |
+| `github.com/fiberfx/mx-echo/v7/ownerstore` | Keep a service's state in one SQLite file under Ecd ID keys, with the four outcomes of a write (committed, conflict, refused, unknown), a changefeed, durability classes D1 and D2 and one owner at a time |
+| `github.com/fiberfx/mx-echo/v7/observe` | Describe one finished request as a value, write it as JSON and hand it to a sink |
+| `github.com/fiberfx/mx-echo/v7/observe/stdhttp` | Name and observe the requests of any `http.Handler`, with the standard mux's pattern |
+| `github.com/fiberfx/mx-echo/v7/fibervisor` | Read the attempt the fv supervisor gave the process, state the build, and write observations as JSON lines |
+| `github.com/fiberfx/mx-echo/v7/middleware` | HTTP middleware, including request logging, recovery and compression |
+| `github.com/fiberfx/mx-echo/v7/echotest` | Request contexts, response recorders and fixtures for handler tests |
 
 The root package imports neither `fibervisor` nor `observe/stdhttp`, and reads no fv environment. A test holds that rule for every package the root imports.
 
@@ -110,10 +110,10 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/fiberfx/mx-echo/v6/fibervisor"
-	"github.com/fiberfx/mx-echo/v6/observe"
-	"github.com/fiberfx/mx-echo/v6/observe/stdhttp"
-	"github.com/fiberfx/mx-echo/v6/server"
+	"github.com/fiberfx/mx-echo/v7/fibervisor"
+	"github.com/fiberfx/mx-echo/v7/observe"
+	"github.com/fiberfx/mx-echo/v7/observe/stdhttp"
+	"github.com/fiberfx/mx-echo/v7/server"
 )
 
 func main() {
@@ -163,12 +163,12 @@ Each `Supervision` method returns a new value and changes nothing it is given.
 
 ## Compatibility
 
-- **v6 stays source-compatible from v6.1.0 on.** Identifiers that moved into a standalone package remain in the root as aliases, such as `TimeOpts` and `ErrInvalidCertOrKeyType`, and `echo.StartConfig` remains available. Programs that inspect the defining package of `TimeOpts` through reflection see `github.com/fiberfx/mx-echo/v6/bind` since v6.2.0. Each patch release from v6.6.1 to v6.7.1 keeps every exported identifier with the same type, and adds or moves nothing.
+- **v7 changes only the module path of v6.** An importer replaces `/v6/` with `/v7/` in its import paths; package `mxdb` is removed, and nothing else of v6.10.0 moved. v6 stayed source-compatible from v6.1.0 on. Identifiers that moved into a standalone package remain in the root as aliases, such as `TimeOpts` and `ErrInvalidCertOrKeyType`, and `echo.StartConfig` remains available. Programs that inspect the defining package of `TimeOpts` through reflection see `github.com/fiberfx/mx-echo/v7/bind` since v6.2.0. Each patch release from v6.6.1 to v6.7.1 keeps every exported identifier with the same type, and adds or moves nothing.
 - **New behaviour is opt-in.** `Config.Observer`, `OnStop`, `server.Owner`, `Echo.Freeze` and the `fibervisor` methods change nothing until a service uses them.
 - **Defaults are unchanged.** With none of the v6.8.0 additions used, the request path and every default are those of v6.7.1.
 - **No cost when off.** With no observer set, the request path is the one of v6.1.0, and a routed request allocates nothing more.
 
-MX Echo follows semantic versioning under the `/v6` module path. Minor releases add opt-in API. Patch releases fix behaviour and change no exported identifier.
+MX Echo follows semantic versioning under the `/v7` module path. Minor releases add opt-in API. Patch releases fix behaviour and change no exported identifier.
 
 ### Upgrading
 

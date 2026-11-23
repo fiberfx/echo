@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"runtime"
 
-	"github.com/fiberfx/mx-echo/v6"
+	"github.com/fiberfx/mx-echo/v7"
 )
 
 // RecoverConfig defines the config for Recover middleware.

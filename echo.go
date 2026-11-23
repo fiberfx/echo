@@ -12,8 +12,8 @@ Example:
 		"log/slog"
 		"net/http"
 
-		"github.com/fiberfx/mx-echo/v6"
-		"github.com/fiberfx/mx-echo/v6/middleware"
+		"github.com/fiberfx/mx-echo/v7"
+		"github.com/fiberfx/mx-echo/v7/middleware"
 	)
 
 	// Handler
@@ -61,9 +61,9 @@ import (
 	"sync/atomic"
 	"syscall"
 
-	"github.com/fiberfx/mx-echo/v6/internal/httprule"
-	"github.com/fiberfx/mx-echo/v6/observe"
-	"github.com/fiberfx/mx-echo/v6/outcome"
+	"github.com/fiberfx/mx-echo/v7/internal/httprule"
+	"github.com/fiberfx/mx-echo/v7/observe"
+	"github.com/fiberfx/mx-echo/v7/outcome"
 )
 
 // Echo is the top-level framework instance.

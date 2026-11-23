@@ -24,9 +24,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fiberfx/mx-echo/v6/observe"
-	"github.com/fiberfx/mx-echo/v6/outcome"
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/observe"
+	"github.com/fiberfx/mx-echo/v7/outcome"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // Wrap names each request, puts the name in the request's context (reqid.FromContext), and gives o.Sink one

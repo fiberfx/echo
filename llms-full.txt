@@ -1,8 +1,8 @@
-# MX Echo v6
+# MX Echo v7
 
 > MX Echo is a high performance, extensible, minimalist Go web framework built on the standard `net/http` library. Echo adds a fast radix-tree router, request binding with pluggable validator, a deep middleware ecosystem, centralized error handling, and template rendering on top of the standard library.
 
-Import path: `github.com/fiberfx/mx-echo/v6`
+Import path: `github.com/fiberfx/mx-echo/v7`
 Go version: 1.27.4+
 Handler signature: `func(c *echo.Context) error`
 
@@ -343,7 +343,7 @@ echo.NewVirtualHostHandler(vhosts map[string]*Echo) *Echo
 ## echotest package
 
 ```go
-import "github.com/fiberfx/mx-echo/v6/echotest"
+import "github.com/fiberfx/mx-echo/v7/echotest"
 
 echotest.LoadBytes(t *testing.T, name string, opts ...loadBytesOpts) []byte
 echotest.TrimNewlineEnd(bytes []byte) []byte
@@ -366,8 +366,8 @@ import (
     "syscall"
     "time"
 
-    "github.com/fiberfx/mx-echo/v6"
-    "github.com/fiberfx/mx-echo/v6/middleware"
+    "github.com/fiberfx/mx-echo/v7"
+    "github.com/fiberfx/mx-echo/v7/middleware"
 )
 
 func main() {

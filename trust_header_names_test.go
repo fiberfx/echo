@@ -6,7 +6,7 @@ package echo
 import (
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6/internal/trust"
+	"github.com/fiberfx/mx-echo/v7/internal/trust"
 )
 
 // TestTrustHeaderNames pins each forwarding header of internal/trust to the root's constant for the same header, so

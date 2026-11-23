@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/fiberfx/mx-echo/v6/server"
+	"github.com/fiberfx/mx-echo/v7/server"
 )
 
 // StartConfig is for creating configured http.Server instance to start serve http(s) requests with given Echo instance

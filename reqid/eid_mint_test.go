@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // testClock is a Clock that moves only when told to, and counts its readings.

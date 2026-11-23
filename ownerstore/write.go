@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // The statements of a write. Each write is one BEGIN IMMEDIATE transaction: the conditional statement, the bump of

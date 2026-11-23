@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fiberfx/mx-echo/v6"
+	"github.com/fiberfx/mx-echo/v7"
 	"golang.org/x/time/rate"
 )
 

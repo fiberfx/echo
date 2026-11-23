@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fiberfx/mx-echo/v6"
+	"github.com/fiberfx/mx-echo/v7"
 )
 
 // ProxyConfig defines the config for Proxy middleware.

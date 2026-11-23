@@ -11,7 +11,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/fiberfx/mx-echo/v6/internal/bindengine"
+	"github.com/fiberfx/mx-echo/v7/internal/bindengine"
 )
 
 // Binder is the interface that wraps the Bind method.

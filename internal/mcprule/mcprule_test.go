@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6/internal/mcprule"
+	"github.com/fiberfx/mx-echo/v7/internal/mcprule"
 )
 
 var served = mcprule.Served(nil)

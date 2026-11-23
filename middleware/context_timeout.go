@@ -8,7 +8,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/fiberfx/mx-echo/v6"
+	"github.com/fiberfx/mx-echo/v7"
 )
 
 // ContextTimeoutConfig defines the config for ContextTimeout middleware.

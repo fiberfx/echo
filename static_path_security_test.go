@@ -12,8 +12,8 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/fiberfx/mx-echo/v6"
-	"github.com/fiberfx/mx-echo/v6/middleware"
+	"github.com/fiberfx/mx-echo/v7"
+	"github.com/fiberfx/mx-echo/v7/middleware"
 )
 
 func TestStaticRejectsEncodedEmptySegments(t *testing.T) {

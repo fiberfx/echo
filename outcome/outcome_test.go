@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6/outcome"
+	"github.com/fiberfx/mx-echo/v7/outcome"
 )
 
 // coder is an error that states a status, as the root's *HTTPError does.

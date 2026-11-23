@@ -1,5 +1,5 @@
 #!/bin/sh
-# mx-echo.rows.sh: the rows of MX Echo (github.com/fiberfx/mx-echo/v6, Go 1.27.4), for flow:row-container.
+# mx-echo.rows.sh: the rows of MX Echo (github.com/fiberfx/mx-echo/v7, Go 1.27.4), for flow:row-container.
 #
 # It starts in /w, where the tree of the revision is unpacked, and its exit status is the result. The container is
 # offline: the Go toolchain comes with the image (mx-trafikist-toolchain:go1.27.4-rust1.100.0-r2; ecd-fiberfx-worker
@@ -24,6 +24,8 @@
 #   read-correlation  ReadCorrelation gives the COR, its carrier and a reason for each carrier (ok, absent, escape, each strict-parse
 #                refusal, cor-kind, cor-system) without allocating, and CorrelationOf is its Correlation; every row of the
 #                vector table reqid/testdata/correlation/correlation_of.tsv holds
+#   module-path  no file of the tree names the previous major's module path, outside CHANGELOG.md and ROADMAP.md's v6.1.0
+#                line; a copy with one import put back to it turns the scan red (both cases are printed)
 #   mutant-pad   a copy whose pad check is wrong (last&3 becomes last&2) turns TestEIDVectorsInvalid red
 #   mutant-count a copy whose minter does not count (count = m.count + 1 becomes count = 0) turns TestEIDVectorsMint red
 #   mutant-cor   a copy whose COR system check accepts every system (if system.Class() == Detached becomes if true) turns
@@ -132,6 +134,28 @@ hits=$(grep -r -n -i -E "$old" --exclude=CHANGELOG.md --exclude=systems.tsv --ex
 [ -n "$hits" ] && echo "$hits"
 [ -z "$hits" ]
 row "legacy-free: the removed id scheme is named nowhere outside CHANGELOG.md and the vendored systems.tsv" $? "$s"
+
+# module-path: no file of the tree names the module path of the previous major, except CHANGELOG.md and the one history line
+# of ROADMAP.md (the section of v6.1.0). The violating case runs the same scan on a copy with one import put back.
+s=$(date +%s)
+prev='fiberfx/mx-echo/''v6'
+modscan() { # modscan DIR: the lines of DIR that name the previous module path, outside the two allowed places
+	(cd "$1" && grep -r -n -F "$prev" --exclude=CHANGELOG.md --exclude-dir=inputs --exclude-dir=.git . \
+		| grep -v -E '^(\./)?ROADMAP\.md:[0-9]+:MX Echo uses .* Applications migrating from the original v6\.0\.0 release') | cut -c1-200
+}
+tree_hits=$(modscan /w)
+echo "module-path: the tree: $(printf '%s' "$tree_hits" | grep -c .) lines name the previous module path"
+[ -z "$tree_hits" ] || printf '%s\n' "$tree_hits" | head
+rm -rf /tmp/mp
+mkdir /tmp/mp
+tar -cf - --exclude=./inputs . | tar -xf - -C /tmp/mp
+sed -i '0,/fiberfx\/mx-echo\/v7\/reqid/s//fiberfx\/mx-echo\/v6\/reqid/' /tmp/mp/ownerstore/store.go
+bad_hits=$(modscan /tmp/mp)
+echo "module-path: a copy with one import put back to the previous path: $(printf '%s' "$bad_hits" | grep -c .) lines (red)"
+[ -z "$bad_hits" ] || printf '%s\n' "$bad_hits" | head -3
+rm -rf /tmp/mp
+[ -z "$tree_hits" ] && [ "$(printf '%s' "$bad_hits" | grep -c .)" = 1 ]
+row "module-path: no file names the previous module path, and a planted import turns the scan red" $? "$s"
 
 # mutant FILE FROM TO NAME TESTRE: a copy of the tree with one line of FILE changed must turn the named test red,
 # and the change must be exactly one line.

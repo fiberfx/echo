@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fiberfx/mx-echo/v6/fibervisor"
+	"github.com/fiberfx/mx-echo/v7/fibervisor"
 )
 
 // setGrace puts FV_GRACE_MS in the environment for the rest of the test, or unsets it when set is false.

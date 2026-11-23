@@ -22,8 +22,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/fiberfx/mx-echo/v6/observe"
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/observe"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // nodeDomain is the first bytes of the input fv hashes for a node's id.

@@ -11,7 +11,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/fiberfx/mx-echo/v6"
+	"github.com/fiberfx/mx-echo/v7"
 )
 
 // Example for `slog` https://pkg.go.dev/log/slog

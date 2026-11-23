@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // mkID returns the Ecd ID of the given kind (three letters) and number n: ids with a larger n sort later.

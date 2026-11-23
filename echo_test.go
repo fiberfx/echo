@@ -23,7 +23,7 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/fiberfx/mx-echo/v6/internal/httprule"
+	"github.com/fiberfx/mx-echo/v7/internal/httprule"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -661,7 +661,7 @@ func TestEchoFile(t *testing.T) {
 			givenFile:        "./go.mod",
 			whenPath:         "/",
 			expectCode:       http.StatusOK,
-			expectStartsWith: "module github.com/fiberfx/mx-echo/v6\n",
+			expectStartsWith: "module github.com/fiberfx/mx-echo/v7\n",
 		},
 		{
 			name:             "nok file does not exist",

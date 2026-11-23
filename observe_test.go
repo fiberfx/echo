@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6/observe"
+	"github.com/fiberfx/mx-echo/v7/observe"
 )
 
 // Allocations per routed request with an observer whose sink keeps nothing, measured on the stand.

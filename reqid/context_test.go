@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // foreignKey is a key of this test's own: a value kept under it is not a request's name.

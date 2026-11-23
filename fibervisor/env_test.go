@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6/fibervisor"
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/fibervisor"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // childBase is a base a service gives Env: entries of its own, a stale entry for three of fv's names, and an

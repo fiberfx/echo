@@ -12,11 +12,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6"
-	"github.com/fiberfx/mx-echo/v6/fibervisor"
-	"github.com/fiberfx/mx-echo/v6/observe"
-	"github.com/fiberfx/mx-echo/v6/outcome"
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7"
+	"github.com/fiberfx/mx-echo/v7/fibervisor"
+	"github.com/fiberfx/mx-echo/v7/observe"
+	"github.com/fiberfx/mx-echo/v7/outcome"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // This file is the fit test of the observed request under an fv attempt (gate G10b of v6.5.0). It drives the

@@ -1,6 +1,8 @@
 # MX Echo roadmap
 
-## v6.11.0
+## v7.0.0
+
+The module path is `github.com/fiberfx/mx-echo/v7`: an importer replaces `/v6/` with `/v7/` in its import paths.
 
 [ownerstore](ownerstore/) keeps a service's state in one SQLite file under Ecd ID keys, with the four outcomes of a write, a changefeed and durability classes D1 and D2. Package `mxdb`, the Go client of the mxdb sidecar, is removed from the module.
 
@@ -75,4 +77,4 @@ The [v6.0.0 release](https://github.com/fiberfx/mx-echo/releases/tag/v6.0.0) con
 - Expose retry and quota information from the rate limiter.
 - Review `Forwarded` handling and proxy authorization header behavior.
 
-Changes to routing, middleware or application lifecycle need a consumer test before they become part of the v6 contract.
+Changes to routing, middleware or application lifecycle need a consumer test before they become part of the v7 contract.

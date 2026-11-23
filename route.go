@@ -12,7 +12,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/fiberfx/mx-echo/v6/route/pattern"
+	"github.com/fiberfx/mx-echo/v7/route/pattern"
 )
 
 // Route contains information to adding/registering new route with the router.

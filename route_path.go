@@ -6,7 +6,7 @@ package echo
 import (
 	"strings"
 
-	"github.com/fiberfx/mx-echo/v6/route/pattern"
+	"github.com/fiberfx/mx-echo/v7/route/pattern"
 )
 
 // routeTreePath writes the parts of a route pattern as the router tree stores

@@ -1,9 +1,9 @@
-# MX Echo v6
+# MX Echo v7
 
 > MX Echo is a high performance, extensible, minimalist Go web framework built on the standard `net/http` library. Echo adds a fast radix-tree router, request binding with pluggable validator, a deep middleware ecosystem, centralized error handling, and template rendering on top of the standard library.
 
 Key facts for LLMs:
-- Import path is `github.com/fiberfx/mx-echo/v6`
+- Import path is `github.com/fiberfx/mx-echo/v7`
 - Handlers use `*echo.Context` (pointer to struct)
 - `Context` is a concrete struct, not an interface
 - Logging uses `log/slog`
@@ -11,7 +11,7 @@ Key facts for LLMs:
 
 ## Workspace
 
-Open the directory containing `go.mod` and run `go list ./...` or `go test ./...`. The core, `middleware` and `echotest` packages share the same v6 module. Use `go doc` in the checkout for the current public API. See [the README](README.md) for installation and migration.
+Open the directory containing `go.mod` and run `go list ./...` or `go test ./...`. The core, `middleware` and `echotest` packages share the same v7 module. Use `go doc` in the checkout for the current public API. See [the README](README.md) for installation and migration.
 
 ## Core Patterns
 
@@ -24,8 +24,8 @@ import (
     "log/slog"
     "net/http"
 
-    "github.com/fiberfx/mx-echo/v6"
-    "github.com/fiberfx/mx-echo/v6/middleware"
+    "github.com/fiberfx/mx-echo/v7"
+    "github.com/fiberfx/mx-echo/v7/middleware"
 )
 
 func hello(c *echo.Context) error {

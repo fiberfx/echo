@@ -10,8 +10,8 @@ import (
 	"slices"
 	"time"
 
-	"github.com/fiberfx/mx-echo/v6"
-	"github.com/fiberfx/mx-echo/v6/internal/httprule"
+	"github.com/fiberfx/mx-echo/v7"
+	"github.com/fiberfx/mx-echo/v7/internal/httprule"
 )
 
 // CSRFUsingSecFetchSite is a context key for CSRF middleware what is set when the client browser is using Sec-Fetch-Site

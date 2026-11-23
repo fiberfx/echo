@@ -9,7 +9,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6/internal/httprule"
+	"github.com/fiberfx/mx-echo/v7/internal/httprule"
 )
 
 // ruleTable is testdata/rules.json: one table per decision. The middleware package reads the same file in

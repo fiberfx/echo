@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/fiberfx/mx-echo/v6/server"
+	"github.com/fiberfx/mx-echo/v7/server"
 )
 
 // The following errors can produce HTTP status code by implementing HTTPStatusCoder interface

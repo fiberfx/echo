@@ -23,11 +23,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fiberfx/mx-echo/v6/fibervisor"
-	"github.com/fiberfx/mx-echo/v6/observe"
-	"github.com/fiberfx/mx-echo/v6/observe/stdhttp"
-	"github.com/fiberfx/mx-echo/v6/reqid"
-	"github.com/fiberfx/mx-echo/v6/server"
+	"github.com/fiberfx/mx-echo/v7/fibervisor"
+	"github.com/fiberfx/mx-echo/v7/observe"
+	"github.com/fiberfx/mx-echo/v7/observe/stdhttp"
+	"github.com/fiberfx/mx-echo/v7/reqid"
+	"github.com/fiberfx/mx-echo/v7/server"
 )
 
 const (

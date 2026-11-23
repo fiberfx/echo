@@ -12,7 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // schemaDDL is schema 1. There is no secondary index: keys are Ecd IDs, so a table of one kind grows at its right

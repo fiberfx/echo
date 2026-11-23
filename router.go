@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/fiberfx/mx-echo/v6/route/pattern"
+	"github.com/fiberfx/mx-echo/v7/route/pattern"
 )
 
 // Router is interface for routing request contexts to registered routes.

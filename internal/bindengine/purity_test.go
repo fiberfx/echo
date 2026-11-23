@@ -64,7 +64,7 @@ func TestImportsStayInAllowlist(t *testing.T) {
 }
 
 func TestImportsNoRoot(t *testing.T) {
-	if checkImports("planted.go", "package planted\n\nimport \"github.com/fiberfx/mx-echo/v6\"\n") == nil {
+	if checkImports("planted.go", "package planted\n\nimport \"github.com/fiberfx/mx-echo/v7\"\n") == nil {
 		t.Fatal("an import of the root passed the check")
 	}
 }

@@ -7,8 +7,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/fiberfx/mx-echo/v6"
-	"github.com/fiberfx/mx-echo/v6/internal/httprule"
+	"github.com/fiberfx/mx-echo/v7"
+	"github.com/fiberfx/mx-echo/v7/internal/httprule"
 )
 
 // RedirectConfig defines the config for Redirect middleware.

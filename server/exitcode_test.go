@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6/server"
+	"github.com/fiberfx/mx-echo/v7/server"
 )
 
 // checkExitCode runs the table of ExitCode against code and reports the first row it gets wrong: 0 only for a stop

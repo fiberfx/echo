@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6/internal/trust"
+	"github.com/fiberfx/mx-echo/v7/internal/trust"
 )
 
 func cidr(s string) *net.IPNet {

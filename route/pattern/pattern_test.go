@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6/route/pattern"
+	"github.com/fiberfx/mx-echo/v7/route/pattern"
 )
 
 func static(value string) pattern.Part {

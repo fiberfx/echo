@@ -7,7 +7,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/fiberfx/mx-echo/v6"
+	"github.com/fiberfx/mx-echo/v7"
 )
 
 // BodyLimitConfig defines the config for BodyLimitWithConfig middleware.

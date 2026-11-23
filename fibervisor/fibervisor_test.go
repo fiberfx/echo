@@ -14,9 +14,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6/fibervisor"
-	"github.com/fiberfx/mx-echo/v6/observe"
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/fibervisor"
+	"github.com/fiberfx/mx-echo/v7/observe"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // The traces and paths of fv's own tests (fiberfx/fv/src/id.rs in jonnify, the helpers trace and key and the test

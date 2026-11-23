@@ -11,8 +11,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6/fibervisor"
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/fibervisor"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // staleParent is a traceparent a caller set before Transport saw the request.

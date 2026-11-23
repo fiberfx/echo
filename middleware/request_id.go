@@ -4,7 +4,7 @@
 package middleware
 
 import (
-	"github.com/fiberfx/mx-echo/v6"
+	"github.com/fiberfx/mx-echo/v7"
 )
 
 // RequestIDConfig defines the config for RequestID middleware.

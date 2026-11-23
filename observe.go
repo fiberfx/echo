@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/fiberfx/mx-echo/v6/observe"
-	"github.com/fiberfx/mx-echo/v6/outcome"
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/observe"
+	"github.com/fiberfx/mx-echo/v7/outcome"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // RequestID returns the request's name, or the zero ID when Config.Observer is off.

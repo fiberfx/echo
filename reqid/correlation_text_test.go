@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 var _ encoding.TextUnmarshaler = (*reqid.Correlation)(nil)

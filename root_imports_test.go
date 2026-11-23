@@ -27,7 +27,7 @@ import (
 // imports the join or a module outside the standard library, and none holds the text of fv's environment. A
 // body moved from the root into an internal package stays under the rule it had in the root.
 
-const rootImportsModule = "github.com/fiberfx/mx-echo/v6/"
+const rootImportsModule = "github.com/fiberfx/mx-echo/v7/"
 
 // rootImportsAllowed holds the module's packages the root may import. internal/trust and internal/bindengine are
 // listed before they exist (v6.6.1, v6.6.2), so that the cars moving the root's bodies into them pass on their own.
@@ -180,9 +180,9 @@ func TestRootImportsViolation(t *testing.T) {
 		name string
 		src  string
 	}{
-		{"an import of fibervisor", "package echo\n\nimport \"github.com/fiberfx/mx-echo/v6/fibervisor\"\n"},
-		{"an import of observe/stdhttp", "package echo\n\nimport \"github.com/fiberfx/mx-echo/v6/observe/stdhttp\"\n"},
-		{"an import of the bare httprule, which is internal", "package echo\n\nimport \"github.com/fiberfx/mx-echo/v6/httprule\"\n"},
+		{"an import of fibervisor", "package echo\n\nimport \"github.com/fiberfx/mx-echo/v7/fibervisor\"\n"},
+		{"an import of observe/stdhttp", "package echo\n\nimport \"github.com/fiberfx/mx-echo/v7/observe/stdhttp\"\n"},
+		{"an import of the bare httprule, which is internal", "package echo\n\nimport \"github.com/fiberfx/mx-echo/v7/httprule\"\n"},
 		{"an import outside the module", "package echo\n\nimport \"golang.org/x/net/http2\"\n"},
 		{"a read of FV_PATH", "package echo\n\nimport \"os\"\n\nvar attempt = os.Getenv(\"FV_PATH\")\n"},
 		{"a read of TRACEPARENT", "package echo\n\nimport \"os\"\n\nvar link = os.Getenv(\"TRACEPARENT\")\n"},
@@ -196,7 +196,7 @@ func TestRootImportsViolation(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "opt-in") {
 		t.Errorf("the refusal of fibervisor says %v, want why the root never imports it", err)
 	}
-	if err := checkRootImports("planted.go", []byte("package echo\n\nimport (\n\t\"net/http\"\n\n\t\"github.com/fiberfx/mx-echo/v6/observe\"\n)\n")); err != nil {
+	if err := checkRootImports("planted.go", []byte("package echo\n\nimport (\n\t\"net/http\"\n\n\t\"github.com/fiberfx/mx-echo/v7/observe\"\n)\n")); err != nil {
 		t.Errorf("a source the root may hold was refused: %v", err)
 	}
 }
@@ -209,9 +209,9 @@ func rootClosureModule(edits ...[2]string) fstest.MapFS {
 	add := func(name, src string) {
 		fsys[name] = &fstest.MapFile{Data: []byte(src)}
 	}
-	add("echo.go", "package echo\n\nimport (\n\t\"github.com/fiberfx/mx-echo/v6/internal/httprule\"\n\t\"github.com/fiberfx/mx-echo/v6/observe\"\n)\n")
+	add("echo.go", "package echo\n\nimport (\n\t\"github.com/fiberfx/mx-echo/v7/internal/httprule\"\n\t\"github.com/fiberfx/mx-echo/v7/observe\"\n)\n")
 	add("internal/httprule/rule.go", "package httprule\n\nimport \"strings\"\n")
-	add("observe/observe.go", "package observe\n\nimport \"github.com/fiberfx/mx-echo/v6/internal/clock\"\n")
+	add("observe/observe.go", "package observe\n\nimport \"github.com/fiberfx/mx-echo/v7/internal/clock\"\n")
 	add("internal/clock/clock.go", "package clock\n\nimport \"time\"\n")
 	add("fibervisor/fibervisor.go", "package fibervisor\n\nimport \"os\"\n\nvar attempt = os.Getenv(\"FV_PATH\")\n")
 	for _, edit := range edits {
@@ -238,9 +238,9 @@ func TestRootImportsClosureViolation(t *testing.T) {
 	}{
 		{"FV_ in an internal package the root imports", [2]string{"internal/httprule/env.go", "package httprule\n\nimport \"os\"\n\nvar attempt = os.Getenv(\"FV_PATH\")\n"}, "internal/httprule/env.go holds the text FV_"},
 		{"TRACEPARENT two imports down", [2]string{"internal/clock/link.go", "package clock\n\nconst header = \"TRACEPARENT\"\n"}, "internal/clock/link.go holds the text TRACEPARENT"},
-		{"the join imported by a package the root imports", [2]string{"internal/clock/clock.go", "package clock\n\nimport \"github.com/fiberfx/mx-echo/v6/fibervisor\"\n"}, "opt-in"},
+		{"the join imported by a package the root imports", [2]string{"internal/clock/clock.go", "package clock\n\nimport \"github.com/fiberfx/mx-echo/v7/fibervisor\"\n"}, "opt-in"},
 		{"a module outside the standard library two imports down", [2]string{"internal/clock/clock.go", "package clock\n\nimport \"golang.org/x/time/rate\"\n"}, "golang.org/x/time/rate, which is neither the standard library nor a package of the module"},
-		{"an import of a package the module does not hold", [2]string{"internal/clock/clock.go", "package clock\n\nimport \"github.com/fiberfx/mx-echo/v6/internal/missing\"\n"}, "package internal/missing"},
+		{"an import of a package the module does not hold", [2]string{"internal/clock/clock.go", "package clock\n\nimport \"github.com/fiberfx/mx-echo/v7/internal/missing\"\n"}, "package internal/missing"},
 	}
 	for _, p := range planted {
 		_, errs := checkRootClosure(rootClosureModule(p.edit))

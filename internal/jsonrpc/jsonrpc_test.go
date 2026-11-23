@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6/internal/jsonrpc"
+	"github.com/fiberfx/mx-echo/v7/internal/jsonrpc"
 )
 
 // decodeRow is one input to Decode and what it gives: the kind, the raw id token ("" when absent), the method and the

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6/observe"
+	"github.com/fiberfx/mx-echo/v7/observe"
 )
 
 // nopResponseWriter is a no-op http.ResponseWriter used to isolate framework

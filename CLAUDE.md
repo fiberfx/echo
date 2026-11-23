@@ -1,6 +1,6 @@
 # Working on MX Echo
 
-Open the module root in GoLand or use the Go tools from that directory. The module is `github.com/fiberfx/mx-echo/v6`. Its minimum Go version is 1.27.4. The [README](README.md) includes a tested server example and the steps for developing Echo and an application in the same Go workspace.
+Open the module root in GoLand or use the Go tools from that directory. The module is `github.com/fiberfx/mx-echo/v7`. Its minimum Go version is 1.27.4. The [README](README.md) includes a tested server example and the steps for developing Echo and an application in the same Go workspace.
 
 ## Development commands
 
@@ -22,4 +22,4 @@ Open the module root in GoLand or use the Go tools from that directory. The modu
 | Middleware implementations | `middleware/` |
 | Public testing helpers | `echotest/` |
 
-Handlers have the signature `func(*echo.Context) error`. Middleware wraps an `echo.HandlerFunc`. Preserve the order of pre-routing, group and route middleware when changing the request path. Keep package imports under the v6 module path and retain upstream attribution in inherited files.
+Handlers have the signature `func(*echo.Context) error`. Middleware wraps an `echo.HandlerFunc`. Preserve the order of pre-routing, group and route middleware when changing the request path. Keep package imports under the v7 module path and retain upstream attribution in inherited files.

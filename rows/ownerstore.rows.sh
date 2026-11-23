@@ -1,5 +1,5 @@
 #!/bin/sh
-# ownerstore.rows.sh: the rows of package ownerstore (github.com/fiberfx/mx-echo/v6/ownerstore, the SQLite owner store),
+# ownerstore.rows.sh: the rows of package ownerstore (github.com/fiberfx/mx-echo/v7/ownerstore, the SQLite owner store),
 # for flow:row-container.
 #
 # It starts in /w, where the tree of the revision is unpacked, and its exit status is the result. The container is

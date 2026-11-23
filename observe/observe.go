@@ -8,8 +8,8 @@
 package observe
 
 import (
-	"github.com/fiberfx/mx-echo/v6/outcome"
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/outcome"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // None is written for a fact that is absent: an absent fact is never an empty string.

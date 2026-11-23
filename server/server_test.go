@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fiberfx/mx-echo/v6/server"
+	"github.com/fiberfx/mx-echo/v7/server"
 )
 
 func TestPlainHandlerLifecycle(t *testing.T) {

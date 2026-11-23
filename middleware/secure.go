@@ -6,7 +6,7 @@ package middleware
 import (
 	"fmt"
 
-	"github.com/fiberfx/mx-echo/v6"
+	"github.com/fiberfx/mx-echo/v7"
 )
 
 // SecureConfig defines the config for Secure middleware.

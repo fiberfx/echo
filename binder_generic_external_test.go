@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fiberfx/mx-echo/v6"
-	"github.com/fiberfx/mx-echo/v6/bind"
+	"github.com/fiberfx/mx-echo/v7"
+	"github.com/fiberfx/mx-echo/v7/bind"
 )
 
 type dualDecoder string

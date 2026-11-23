@@ -5,7 +5,7 @@ package ownerstore
 import (
 	"errors"
 
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // MaxValue is the largest value, in bytes, that a store holds.

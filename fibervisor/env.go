@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // envNames are the variables of fv's frame (fv's door.rs and main.rs): first the three that place a leaf in the

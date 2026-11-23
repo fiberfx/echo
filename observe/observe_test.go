@@ -13,9 +13,9 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/fiberfx/mx-echo/v6/observe"
-	"github.com/fiberfx/mx-echo/v6/outcome"
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/observe"
+	"github.com/fiberfx/mx-echo/v7/outcome"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // keys is the order in which AppendJSON writes an observation's fields.

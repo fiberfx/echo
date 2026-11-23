@@ -2,7 +2,7 @@
 
 package fibervisor
 
-import "github.com/fiberfx/mx-echo/v6/reqid"
+import "github.com/fiberfx/mx-echo/v7/reqid"
 
 // RequestNode returns the node id fv would derive for the request named id under this attempt, the path
 // s.Path+"/q"+id: derived, not recorded. fv holds no record for it, so fv show refuses it. It is false for the zero

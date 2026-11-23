@@ -7,7 +7,7 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/fiberfx/mx-echo/v6/observe"
+	"github.com/fiberfx/mx-echo/v7/observe"
 )
 
 // Supervision is the attempt a supervised service runs in, as fv names it: the trace, the attempt's path, and

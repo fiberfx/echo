@@ -6,7 +6,7 @@ package echo
 import (
 	"net/http"
 
-	"github.com/fiberfx/mx-echo/v6/internal/trust"
+	"github.com/fiberfx/mx-echo/v7/internal/trust"
 )
 
 // SchemeExtractor is a function to determine the scheme (for example `http` or `https`) of http.Request.

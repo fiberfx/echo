@@ -6,7 +6,7 @@ package echo
 import (
 	"fmt"
 
-	"github.com/fiberfx/mx-echo/v6/bind"
+	"github.com/fiberfx/mx-echo/v7/bind"
 )
 
 // TimeLayout specifies the format for parsing time values in request parameters.

@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fiberfx/mx-echo/v6"
-	"github.com/fiberfx/mx-echo/v6/server"
+	"github.com/fiberfx/mx-echo/v7"
+	"github.com/fiberfx/mx-echo/v7/server"
 )
 
 // checkStopFieldsPassed holds that the root's StartConfig hands OnStop and Owner to the server package: the

@@ -13,9 +13,9 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/fiberfx/mx-echo/v6/fibervisor"
-	"github.com/fiberfx/mx-echo/v6/observe"
-	"github.com/fiberfx/mx-echo/v6/reqid"
+	"github.com/fiberfx/mx-echo/v7/fibervisor"
+	"github.com/fiberfx/mx-echo/v7/observe"
+	"github.com/fiberfx/mx-echo/v7/reqid"
 )
 
 // fvAttemptNode is the node id fv's id.rs pins for fvOtherTrace and fvAttempt (TestAttempt holds derive to it).
