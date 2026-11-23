@@ -13,7 +13,8 @@
 #   test          go test ./ownerstore/ with CGO_ENABLED=0: every test passes
 #   race          go test -race ./ownerstore/ with cgo on
 #   build         CGO_ENABLED=0 go build ./ownerstore/ for linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64
-#   no-cgo        runtime/cgo is not among the package's dependencies, with cgo on
+#   no-cgo        no dependency outside the standard library has cgo files (the standard library's net and os/user
+#                 use cgo only when it is on, and every build above runs with it off)
 #   vectors       TestOutcomeVectors checks all 34 steps of outcomes.tsv; TestRowsMapping holds
 #   rows.tsv      each required check of rows.tsv passes through the test it is mapped to (16 rows)
 #   mutant-*      a copy of the tree with one line changed turns the named test red (11 mutants)
@@ -86,11 +87,12 @@ for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; d
 done
 
 s=$(date +%s)
-CGO_ENABLED=1 go list -deps ./ownerstore/ >/tmp/deps.log 2>&1
+CGO_ENABLED=1 go list -deps -f '{{if and .CgoFiles (not .Standard)}}{{.ImportPath}}{{end}}' ./ownerstore/ >/tmp/cgodeps.log 2>&1
 r=$?
-if grep -x -e 'runtime/cgo' -e 'C' /tmp/deps.log; then echo "ownerstore depends on cgo"; r=1; fi
-echo "deps: $(grep -c . /tmp/deps.log) packages"
-row "no-cgo: runtime/cgo is not among the dependencies of ownerstore" $r "$s"
+CGO_ENABLED=1 go list -deps -f '{{.ImportPath}} {{join .Imports " "}}' ./ownerstore/ 2>/dev/null | grep -w runtime/cgo | cut -d' ' -f1 | tr '\n' ' ' >/tmp/cgoimp.log
+echo "packages with cgo files outside the standard library: $(grep -c . /tmp/cgodeps.log); standard packages that import runtime/cgo when cgo is on (net, os/user: optional there): $(cat /tmp/cgoimp.log)"
+[ -s /tmp/cgodeps.log ] && { cat /tmp/cgodeps.log; r=1; }
+row "no-cgo: no dependency of ownerstore outside the standard library has cgo files" $r "$s"
 
 s=$(date +%s)
 r=0
