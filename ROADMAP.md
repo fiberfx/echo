@@ -1,8 +1,12 @@
 # MX Echo roadmap
 
+## v7.0.2
+
+The rows hold reqid's detached draw with a planted old draw, and the Ecd store contract's name with a planted line; the documentation names the Ecd store contract. No package changes.
+
 ## v7.0.1
 
-The vendored conformance vectors of the ECD store contract follow jonnify 6c9a32228, and the `ownerstore` harness no longer reads back on its own. The store's behaviour is unchanged.
+The vendored conformance vectors of the Ecd store contract follow jonnify 6c9a32228, and the `ownerstore` harness no longer reads back on its own. The store's behaviour is unchanged.
 
 ## v7.0.0
 

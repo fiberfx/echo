@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 // Package ownerstore is the SQLite owner store of a service: one file, one writer process, keys that are Ecd IDs
-// (reqid.EID, 16 bytes), values of at most MaxValue bytes, and the four outcomes of a write of the store contract
-// of ecd (committed, conflict, refused, unknown).
+// (reqid.EID, 16 bytes), values of at most MaxValue bytes, and the four outcomes of a write of the Ecd store contract
+// (committed, conflict, refused, unknown).
 //
 // The store is a single SQLite 3 file in WAL mode, driven by modernc.org/sqlite (pure Go, no cgo). Create writes a
 // new store and Open opens an existing one; Open never creates, initialises, repairs or migrates. Writes go through

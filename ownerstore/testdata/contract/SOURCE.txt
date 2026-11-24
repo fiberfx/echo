@@ -1,4 +1,4 @@
-The ECD store contract's conformance vectors (version 1, status proposed), copied unchanged from
+The Ecd store contract's conformance vectors (version 1, status proposed), copied unchanged from
 specs/ecd_stores/vectors/ at jonnify commit 6c9a32228 (the repository's ecd/kan branch):
 
   outcomes.tsv   the outcomes of a write: 13 cases, 36 steps, 10 columns     (contract: outcomes, idempotency)

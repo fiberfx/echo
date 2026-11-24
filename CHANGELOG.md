@@ -1,5 +1,11 @@
 # Changelog
 
+## MX Echo v7.0.2 — 2026-11-24
+
+- Added: `rows/mx-echo.rows.sh` row `mutant-old-draw`: a copy whose detached draw is the one before v7.0.1 turns `TestDetachedDrawLastAccepted` red; row `store-name`: the Ecd store contract is named so outside this file, and a planted line turns the scan red.
+- Changed: the documentation names the Ecd store contract (`ROADMAP.md`, the `ownerstore` package comment, `ownerstore/testdata/contract/SOURCE.txt`); the entries below keep their wording.
+- No package's API or behaviour changes; go.mod and go.sum are v7.0.1's, so the module graph is unchanged.
+
 ## MX Echo v7.0.1 — 2026-11-24
 
 - Changed: the vendored conformance vectors of the ECD store contract in `ownerstore/testdata/contract` follow jonnify 6c9a32228: `outcomes.tsv` has 13 cases and 36 steps (it had 34); `retry_after_unknown_same_id` writes on the poisoned handle, which refuses with the first cause (step 2), reads back (step 3), then retries (steps 4 and 5), and the `full-open` fault is named as made through a test hook at commit. `rows.tsv` is unchanged (22 checks, 16 required).

@@ -34,6 +34,10 @@
 #                return EID{}, ReasonCorKind) turns TestReadCorrelation red
 #   mutant-mint-cor  a copy whose Minter.Correlation skips the COR system check (err != nil || !checkCorrelation(id) becomes
 #                err != nil) turns TestMinterCorRefused red
+#   mutant-old-draw  a copy whose detached draw is the one before v7.0.1 (the code is the draw's low 15 bits, kept only
+#                when it is detached) turns TestDetachedDrawLastAccepted red
+#   store-name   no file outside CHANGELOG.md spells the store contract's old name; a copy with one line put back turns
+#                the scan red (both cases are printed)
 # Exit 0 only when every row passed.
 set -u
 cd /w || exit 2
@@ -157,6 +161,24 @@ rm -rf /tmp/mp
 [ -z "$tree_hits" ] && [ "$(printf '%s' "$bad_hits" | grep -c .)" = 1 ]
 row "module-path: no file names the previous module path, and a planted import turns the scan red" $? "$s"
 
+# store-name: no file outside CHANGELOG.md (released entries keep their wording) spells the store contract's old name. The
+# violating case runs the same scan on a copy with one line put back.
+s=$(date +%s)
+name='EC''D store contract'
+sn_hits=$(grep -r -n -F "$name" --exclude=CHANGELOG.md --exclude-dir=inputs --exclude-dir=.git . | cut -c1-200)
+echo "store-name: the tree: $(printf '%s' "$sn_hits" | grep -c .) lines spell the old name"
+[ -z "$sn_hits" ] || printf '%s\n' "$sn_hits" | head
+rm -rf /tmp/sn
+mkdir /tmp/sn
+tar -cf - --exclude=./inputs . | tar -xf - -C /tmp/sn
+sed -i "0,/Ecd store contract/s//$name/" /tmp/sn/ownerstore/testdata/contract/SOURCE.txt
+sn_bad=$(cd /tmp/sn && grep -r -n -F "$name" --exclude=CHANGELOG.md --exclude-dir=inputs --exclude-dir=.git . | cut -c1-200)
+echo "store-name: a copy with one line put back: $(printf '%s' "$sn_bad" | grep -c .) lines (red)"
+[ -z "$sn_bad" ] || printf '%s\n' "$sn_bad" | head -3
+rm -rf /tmp/sn
+[ -z "$sn_hits" ] && [ "$(printf '%s' "$sn_bad" | grep -c .)" = 1 ]
+row "store-name: the Ecd store contract is named so outside CHANGELOG.md, and a planted line turns the scan red" $? "$s"
+
 # mutant FILE FROM TO NAME TESTRE: a copy of the tree with one line of FILE changed must turn the named test red,
 # and the change must be exactly one line.
 mutant() {
@@ -182,6 +204,7 @@ mutant reqid/eid_mint.go 'count = m.count + 1' 'count = 0' mutant-count TestEIDV
 mutant reqid/correlation.go 'if system.Class() == Detached {' 'if true {' mutant-cor TestEcdCorRefused
 mutant reqid/correlation.go 'return EID{}, ReasonCorSystem' 'return EID{}, ReasonCorKind' mutant-reason TestReadCorrelation
 mutant reqid/eid_mint.go 'if err != nil || !checkCorrelation(id) {' 'if err != nil {' mutant-mint-cor TestMinterCorRefused
+mutant reqid/eid_mint.go 'system = Code(1024 + v%5120)' 'system = Code(v) \& 0x7fff; if system.Class() != Detached { continue }' mutant-old-draw TestDetachedDrawLastAccepted
 
 echo "total $(($(date +%s) - t0)) s"
 if [ $fails = 0 ]; then echo "RESULT PASS"; exit 0; fi

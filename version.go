@@ -5,5 +5,5 @@ package echo
 
 const (
 	// Version of MX Echo
-	Version = "7.0.1"
+	Version = "7.0.2"
 )
