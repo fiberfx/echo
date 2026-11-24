@@ -339,7 +339,7 @@ func TestDetachedRefusesWithoutRandom(t *testing.T) {
 	}
 	for name, random := range map[string]*scriptedRandom{
 		"a source that fails":            {fail: true},
-		"a source that gives no code":  {chunks: allRejected},
+		"a source that gives no code":    {chunks: allRejected},
 		"a source that fails the writer": {chunks: [][]byte{codeDrawn3ab}},
 	} {
 		m, err := reqid.NewDetached(random, clock, newPid(7))
