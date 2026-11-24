@@ -1,5 +1,9 @@
 # MX Echo roadmap
 
+## v7.0.1
+
+The vendored conformance vectors of the ECD store contract follow jonnify 6c9a32228, and the `ownerstore` harness no longer reads back on its own. The store's behaviour is unchanged.
+
 ## v7.0.0
 
 The module path is `github.com/fiberfx/mx-echo/v7`: an importer replaces `/v6/` with `/v7/` in its import paths.

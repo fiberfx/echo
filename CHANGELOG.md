@@ -1,5 +1,11 @@
 # Changelog
 
+## MX Echo v7.0.1 — 2026-11-24
+
+- Changed: the vendored conformance vectors of the ECD store contract in `ownerstore/testdata/contract` follow jonnify 6c9a32228: `outcomes.tsv` has 13 cases and 36 steps (it had 34); `retry_after_unknown_same_id` writes on the poisoned handle, which refuses with the first cause (step 2), reads back (step 3), then retries (steps 4 and 5), and the `full-open` fault is named as made through a test hook at commit. `rows.tsv` is unchanged (22 checks, 16 required).
+- Changed: the `ownerstore` test harness no longer reads back on its own before a retry; each read-back is a `get` step of the vectors.
+- The behaviour of the store is unchanged, already as the contract states it at `ecd_stores.contract.md:69`: a poisoned handle refuses writes with the first cause, and a read on the handle first reopens the store.
+
 ## MX Echo v7.0.0 — 2026-11-23
 
 - Changed, breaking: the module path is `github.com/fiberfx/mx-echo/v7`; an importer replaces `/v6/` with `/v7/` in its import paths.

@@ -6,12 +6,12 @@
 
 MX Echo is a Go HTTP framework derived from LabStack Echo v5.4.6, with the v5.4.7 fixes adapted to v7. Its router, middleware and request-test helpers ship together as one module, `github.com/fiberfx/mx-echo/v7`. Beside the framework, the module holds standalone packages for typed binding, server lifecycle, route patterns, request outcomes, request names and observation. They use no Echo type, so any `http.Handler` can use them. A service that the fv supervisor holds can opt into the `fibervisor` package to state its attempt, name its requests in fv's terms and report how it stopped. Each feature added since v6.3.0 is opt-in: with none of them used, the request path and every default stay as they were.
 
-The minimum Go version is **1.27.4**. The latest release is **v7.0.0**.
+The minimum Go version is **1.27.4**. The latest release is **v7.0.1**.
 
 ## Install
 
 ```sh
-go get github.com/fiberfx/mx-echo/v7@v7.0.0
+go get github.com/fiberfx/mx-echo/v7@v7.0.1
 ```
 
 After adding imports such as `middleware`, run `go mod tidy` in the application to record the dependencies its packages use.

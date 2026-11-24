@@ -15,7 +15,7 @@
 #   build         CGO_ENABLED=0 go build ./ownerstore/ for linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64
 #   no-cgo        no dependency outside the standard library has cgo files (the standard library's net and os/user
 #                 use cgo only when it is on, and every build above runs with it off)
-#   vectors       TestOutcomeVectors checks all 34 steps of outcomes.tsv; TestRowsMapping holds
+#   vectors       TestOutcomeVectors checks all 36 steps of outcomes.tsv; TestRowsMapping holds
 #   rows.tsv      each required check of rows.tsv passes through the test it is mapped to (16 rows)
 #   mutant-*      a copy of the tree with one line changed turns the named test red (11 mutants)
 # Exit 0 only when every row passed.
@@ -101,7 +101,7 @@ sub=$(grep -c -- '--- PASS: TestOutcomeVectors/' /tmp/test.log)
 echo "outcome vectors: $top top-level pass, $sub passing runs (13 cases; the 4 cases with an io-at-commit fault run for both landings)"
 [ "$top" = 1 ] && [ "$sub" = 17 ] || r=1
 grep -q -- '--- PASS: TestRowsMapping ' /tmp/test.log || r=1
-row "vectors: TestOutcomeVectors checks all 34 steps, TestRowsMapping holds" $r "$s"
+row "vectors: TestOutcomeVectors checks all 36 steps, TestRowsMapping holds" $r "$s"
 
 # rowcheck CHECK TEST: the required check of rows.tsv passes through the test it is mapped to
 rowcheck() {

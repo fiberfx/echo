@@ -210,19 +210,6 @@ func (h *harness) run(steps []vstep) int {
 		if st.req == "create" {
 			value = bytes.Repeat([]byte{byte(id[15])}, st.size)
 		}
-		// A create that waits on a read-back ("committed or conflict" after an unknown outcome, with no get step of its
-		// own in the vector) follows the contract's rule: read back by the same id, which reopens the handle, then retry.
-		if st.req == "create" && st.fault == "-" && strings.Contains(st.want, " or ") && h.s.poisoned() != nil {
-			_, found, gerr := h.s.Get(bg, id)
-			if gerr != nil {
-				t.Fatalf("%s: read-back before the retry: %v", label, gerr)
-			}
-			lastGet[st.key] = "absent"
-			if found {
-				lastGet[st.key] = "found"
-			}
-			t.Logf("%s: read back by the same id before the retry (the vector has no get step here)", label)
-		}
 		undo := h.apply(st.fault)
 		poisonedBefore := h.s.poisoned() != nil
 		reopensBefore := h.s.Report().Reopens
@@ -378,8 +365,8 @@ func TestOutcomeVectors(t *testing.T) {
 	for _, c := range cases {
 		total += len(byCase[c])
 	}
-	if len(cases) != 13 || total != 34 {
-		t.Fatalf("outcomes.tsv has %d cases and %d steps, want 13 and 34", len(cases), total)
+	if len(cases) != 13 || total != 36 {
+		t.Fatalf("outcomes.tsv has %d cases and %d steps, want 13 and 36", len(cases), total)
 	}
 	for _, c := range cases {
 		steps := byCase[c]

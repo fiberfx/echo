@@ -1,10 +1,11 @@
-The ECD store contract's conformance vectors (version 1, status proposed), copied unchanged:
+The ECD store contract's conformance vectors (version 1, status proposed), copied unchanged from
+specs/ecd_stores/vectors/ at jonnify commit 6c9a32228 (the repository's ecd/kan branch):
 
-  outcomes.tsv   the outcomes of a write: 13 cases, 34 steps, 10 columns     (contract: outcomes, idempotency)
+  outcomes.tsv   the outcomes of a write: 13 cases, 36 steps, 10 columns     (contract: outcomes, idempotency)
   rows.tsv       class, open, feed and recovery rows: 22 checks, 6 columns,
                  16 required and 6 deferred                                 (contract: conformance)
 
-TestOutcomeVectors runs every step of outcomes.tsv through the adapter and fails unless all 34 were checked.
+TestOutcomeVectors runs every step of outcomes.tsv through the adapter and fails unless all 36 were checked.
 TestRowsMapping maps each check of rows.tsv whose status is "required" to a named test of this package and fails
 when a required check has none or a mapped check is not in the file. Deferred checks stay unmapped.
 

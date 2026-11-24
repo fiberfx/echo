@@ -11,7 +11,7 @@
 #   precondition  absent (create) or rev=N (update); "-" for get
 #   size          the value's length in bytes; the limit is 65536 (design state-schema: CHECK length(value) <= 65536); "-" for get
 #   fault         injected before the step: - | io-at-commit (the COMMIT returns an I/O error) | full-rolled-back (SQLITE_FULL, the transaction rolled back,
-#                 connection in autocommit) | space-freed (PRAGMA max_page_count raised, so the volume has room again) | full-open (SQLITE_FULL, the transaction left open) | busy (the file's write lock is held elsewhere past the call's bound)
+#                 connection in autocommit) | space-freed (PRAGMA max_page_count raised, so the volume has room again) | full-open (SQLITE_FULL, the transaction left open; made through a test hook at commit, because SQLite rolls a single statement back on SQLITE_FULL, so max_page_count cannot leave a transaction open) | busy (the file's write lock is held elsewhere past the call's bound)
 #   want_outcome  committed | conflict | refused | unknown (contract #outcomes; never "not sent" in process); "a or b" accepts either; refused:first-cause means
 #                 the refusal carries the cause of the fault that poisoned the handle; for a get: found | absent
 #   want_readback the key's stored state after the step, as a get on the same handle reads it: absent, rev=N, or "rev=N or absent" when the fault leaves it open;
@@ -50,5 +50,7 @@ full_open	2	get	k1	-	-	-	found or absent	rev=1 or absent	design.md:456 (poisoned
 busy	1	create	k1	absent	100	busy	refused	absent	design.md:455 (a resource bound; nothing written; the wait is the caller's); derived, see gap in the return report
 busy	2	create	k1	absent	100	-	committed	rev=1	contract.md:64 (the caller waits for the bound, then the same request commits)
 retry_after_unknown_same_id	1	create	k1	absent	100	io-at-commit	unknown	rev=1 or absent	contract.md:65; design.md:456 (the client mints the id once, before the first attempt)
-retry_after_unknown_same_id	2	create	k1	absent	100	-	committed or conflict	rev=1	contract.md:74-75 idempotency 1-2; a retry of a landed create conflicts, of an absent one commits; either leaves exactly one row at rev=1
-retry_after_unknown_same_id	3	create	k1	absent	100	-	conflict	rev=1	contract.md:75 (a third attempt of the same id never writes twice)
+retry_after_unknown_same_id	2	create	k1	absent	100	-	refused:first-cause	-	contract.md:69 (a poisoned handle refuses writes with the first cause until a read reopens it)
+retry_after_unknown_same_id	3	get	k1	-	-	-	found or absent	rev=1 or absent	contract.md:69 (get on a poisoned handle reopens first, and the read-back settles unknown)
+retry_after_unknown_same_id	4	create	k1	absent	100	-	committed or conflict	rev=1	contract.md:74-75 idempotency 1-2; a retry of a landed create conflicts, of an absent one commits; either leaves exactly one row at rev=1
+retry_after_unknown_same_id	5	create	k1	absent	100	-	conflict	rev=1	contract.md:75 (a third attempt of the same id never writes twice)
