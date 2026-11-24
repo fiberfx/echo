@@ -288,18 +288,18 @@ func (r *scriptedRandom) Fill(buf []byte) error {
 }
 
 var (
-	codeDrawn3ab  = []byte{0x04, 0xc7}             // the system code 3ab
+	codeDrawn3ab  = []byte{0x00, 0xc7}             // the system code 3ab: 1024 + 199
 	writerDrawn   = []byte{0x07, 0x5b, 0xcd, 0x15} // the writer 123456789
 	writerRenewed = []byte{0x00, 0x00, 0x00, 0x2a} // the writer 42
-	reservedDrawn = []byte{0x00, 0x00}             // the system code 222: reserved
-	registeredHit = []byte{0x7f, 0xff}             // the system code zzz: registered
+	rejectedDrawn = []byte{0xff, 0xff}             // a draw of 61440 or more: drawn again
+	rejectedLow   = []byte{0xf0, 0x00}             // the first draw of 61440: drawn again
 )
 
 func TestDetachedMatchesTheVector(t *testing.T) {
 	// The vector mint.tsv "detached": the lease 3ab:123456789:1795271400000:1795357800000 mints 3ab_run_23obzcbapv5prncp2222.
 	clock := &testClock{}
 	clock.ms.Store(1795271400000)
-	random := &scriptedRandom{chunks: [][]byte{reservedDrawn, registeredHit, codeDrawn3ab, writerDrawn}}
+	random := &scriptedRandom{chunks: [][]byte{rejectedLow, rejectedDrawn, codeDrawn3ab, writerDrawn}}
 	m, err := reqid.NewDetached(random, clock, newPid(7))
 	if err != nil {
 		t.Fatal(err)
@@ -317,7 +317,7 @@ func TestDetachedMatchesTheVector(t *testing.T) {
 		t.Errorf("the first detached id is (%v, %q), want 3ab_run_23obzcbapv5prncp2222", id, reason(err))
 	}
 	if random.calls != 4 {
-		t.Errorf("the random source was called %d times, want 4 (two refused codes, one code, one writer)", random.calls)
+		t.Errorf("the random source was called %d times, want 4 (two rejected draws, one code, one writer)", random.calls)
 	}
 }
 
@@ -333,13 +333,13 @@ func mustCode(t testing.TB, s string) reqid.Code {
 func TestDetachedRefusesWithoutRandom(t *testing.T) {
 	clock := &testClock{}
 	clock.ms.Store(1795271400000)
-	var allReserved [][]byte
+	var allRejected [][]byte
 	for i := 0; i < 64; i++ {
-		allReserved = append(allReserved, reservedDrawn)
+		allRejected = append(allRejected, rejectedDrawn)
 	}
 	for name, random := range map[string]*scriptedRandom{
 		"a source that fails":            {fail: true},
-		"a source that gives no detach":  {chunks: allReserved},
+		"a source that gives no code":  {chunks: allRejected},
 		"a source that fails the writer": {chunks: [][]byte{codeDrawn3ab}},
 	} {
 		m, err := reqid.NewDetached(random, clock, newPid(7))

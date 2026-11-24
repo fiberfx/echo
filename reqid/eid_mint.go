@@ -51,14 +51,19 @@ func NewDetached(random RandomSource, clock Clock, pids PidSource) (*Minter, err
 func detachedLease(random RandomSource, clock Clock, keep Code) (Lease, error) {
 	system := keep
 	if system == 0 {
+		// Each draw reads one 16-bit big-endian value v. A value of 61440 (12 x 5120) or more is drawn again, at most
+		// 64 times in all; otherwise the code is 1024 + v mod 5120, so each of the 5,120 detached codes (3 to 7 as
+		// first character) is equally likely and a draw is rejected with probability 1/16.
 		found := false
 		for i := 0; i < 64 && !found; i++ {
 			var b [2]byte
 			if err := random.Fill(b[:]); err != nil {
 				return Lease{}, ErrRandom
 			}
-			system = Code(uint16(b[0])<<8|uint16(b[1])) & 0x7fff
-			found = system.Class() == Detached
+			if v := uint16(b[0])<<8 | uint16(b[1]); v < 61440 {
+				system = Code(1024 + v%5120)
+				found = true
+			}
 		}
 		if !found {
 			return Lease{}, ErrRandom

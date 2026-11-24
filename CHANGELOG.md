@@ -4,7 +4,8 @@
 
 - Changed: the vendored conformance vectors of the ECD store contract in `ownerstore/testdata/contract` follow jonnify 6c9a32228: `outcomes.tsv` has 13 cases and 36 steps (it had 34); `retry_after_unknown_same_id` writes on the poisoned handle, which refuses with the first cause (step 2), reads back (step 3), then retries (steps 4 and 5), and the `full-open` fault is named as made through a test hook at commit. `rows.tsv` is unchanged (22 checks, 16 required).
 - Changed: the `ownerstore` test harness no longer reads back on its own before a retry; each read-back is a `get` step of the vectors.
-- The behaviour of the store is unchanged, already as the contract states it at `ecd_stores.contract.md:69`: a poisoned handle refuses writes with the first cause, and a read on the handle first reopens the store.
+- The behaviour of `ownerstore` is unchanged, already as the contract states it at `ecd_stores.contract.md:69`: a poisoned handle refuses writes with the first cause, and a read on the handle first reopens the store.
+- Fixed: `reqid`'s detached minting draws its system code as ecd-id v0.8.0 does (one 16-bit draw, r >= 61440 drawn again, code 1024 + r mod 5120): each detached code stays equally likely, and a refusal after 64 draws no longer occurs in practice (before: about once in 53,000). The same random bytes now give a different code than in v7.0.0.
 
 ## MX Echo v7.0.0 — 2026-11-23
 
